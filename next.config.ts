@@ -1,14 +1,14 @@
 import type { NextConfig } from 'next';
 
-const tencentStatic = process.env.TENCENT_STATIC === '1';
+const configuredBasePath = process.env.PUBLIC_BASE_PATH?.trim() ?? '';
+const publicBasePath =
+  configuredBasePath && configuredBasePath !== '/'
+    ? `/${configuredBasePath.replace(/^\/+|\/+$/g, '')}`
+    : '';
 
 const nextConfig: NextConfig = {
   output: 'export',
-  ...(tencentStatic
-    ? {
-        assetPrefix: '/owlmate-claw',
-      }
-    : {}),
+  ...(publicBasePath ? { assetPrefix: publicBasePath } : {}),
 };
 
 export default nextConfig;
