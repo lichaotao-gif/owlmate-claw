@@ -40,3 +40,6 @@ next-env.d.ts
 # local dependency cache and TypeScript incremental state
 /.pnpm-store/
 *.tsbuildinfo
+
+# local editor and agent settings
+/.qoder/
