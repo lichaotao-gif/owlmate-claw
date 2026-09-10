@@ -1,11 +1,7 @@
-import { Bird, Mountain, Orbit, Shield, Telescope, Waves } from 'lucide-react';
 import type { Strategist } from '@/lib/strategists';
 
-const avatars = { mountain: Mountain, bird: Bird, waves: Waves, orbit: Orbit, shield: Shield, telescope: Telescope };
-
 export function StrategistAvatar({ strategist, small = false }: { strategist: Strategist; small?: boolean }) {
-  const Icon = avatars[strategist.avatar];
-  return <span className={`strategist-avatar${small ? ' small' : ''}`} style={{'--agent-accent': strategist.accent} as React.CSSProperties} aria-hidden="true"><Icon /></span>;
+  return <span className={`strategist-avatar${small ? ' small' : ''}`} style={{'--agent-accent': strategist.accent, backgroundImage: `url(${strategist.avatar})`} as React.CSSProperties} aria-hidden="true"/>;
 }
 
 export function StrategistSparkline({ strategist, large = false }: { strategist: Strategist; large?: boolean }) {
