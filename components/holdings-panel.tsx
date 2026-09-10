@@ -1,27 +1,402 @@
 'use client';
-import {useState} from 'react';
-import {Plus,Pencil,Trash2,Layers3,ChevronRight,Wallet,Ellipsis} from 'lucide-react';
-import {DropdownMenu,DropdownMenuTrigger,DropdownMenuContent,DropdownMenuItem} from '@/components/ui/dropdown-menu';
-import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
-import {AlertDialog,AlertDialogContent,AlertDialogTitle,AlertDialogDescription,AlertDialogCancel} from '@/components/ui/alert-dialog';
-import {type Account,type Holding,summarize,validateHolding} from '@/lib/holdings';
-import {money} from '@/lib/simulation';
-export function HoldingsPanel({account,selected,onSelect,onChange}:{account:Account;selected:number;onSelect:(n:number)=>void;onChange:(a:Account)=>void}){
- const [mode,setMode]=useState<'add'|'edit'|'cash'|null>(null),[editing,setEditing]=useState<Holding|null>(null),[deleting,setDeleting]=useState<Holding|null>(null),[error,setError]=useState('');
- const [draft,setDraft]=useState({code:'',name:'',quantity:'100',cost:'',price:''}),[cashDraft,setCashDraft]=useState('');
- const summary=summarize(account);
- function open(h?:Holding){setError('');setEditing(h??null);setDraft(h?{code:h.code,name:h.name,quantity:String(h.quantity),cost:String(h.cost),price:String(h.price)}:{code:'',name:'',quantity:'100',cost:'',price:''});setMode(h?'edit':'add');}
- function save(){setError('');if(mode==='cash'){const cash=Number(cashDraft);if(!cashDraft.trim()||!Number.isFinite(cash)||cash<0||cash>1e12){setError('现金必须为 0 至 1 万亿元之间的有效金额。');return}onChange({...account,cash});setMode(null);return}
- if(Object.values(draft).some(v=>!v.trim())){setError('请完整填写所有字段。');return}
- const h:Holding={id:editing?.id??crypto.randomUUID(),code:draft.code.trim(),name:draft.name.trim(),quantity:Number(draft.quantity),cost:Number(draft.cost),price:Number(draft.price),color:editing?.color??['#9f8bff','#79adff','#52ccb9','#e3bb76'][account.holdings.length%4]};
- const problem=validateHolding(h,account.holdings);if(problem){setError(problem);return}if(!editing&&account.holdings.length>=100){setError('演示账户最多支持 100 只持仓。');return}
- onChange({...account,holdings:editing?account.holdings.map(x=>x.id===editing.id?h:x):[...account.holdings,h]});setMode(null);
- }
- return <section className="panel holdings-panel" id="holdings"><div className="panel-heading"><h2>我的持仓 <span>{String(account.holdings.length).padStart(2,'0')}</span></h2><button className="holding-add" onClick={()=>open()}><Plus size={14}/>添加</button></div>
- <button className={'portfolio-select '+(selected===-1?'selected':'')} onClick={()=>onSelect(-1)}><span className="portfolio-icon"><Layers3 size={18}/></span><span><b>全部资产</b><small>组合视角</small></span><ChevronRight size={15}/></button>
- <div className="holdings-list">{summary.assets.map((h,i)=><div className={'holding-row '+(selected===i?'selected':'')} key={h.id}><button className="holding" onClick={()=>onSelect(i)}><div className="holding-name"><i style={{background:h.color}}/><b>{h.name}</b><span>{h.allocation.toFixed(1)}%</span></div><div className="holding-data"><small>{h.code} · {h.quantity.toLocaleString()} 股/份</small><span>市值 ¥{money(h.value,false)}</span><span>参考现价 {h.price} · 成本 {h.cost}</span><em className={h.pnl>=0?'up':'down'}>浮盈亏 {h.pnl>=0?'+':''}{money(h.pnl)}</em></div></button><DropdownMenu><DropdownMenuTrigger className="holding-more" aria-label={`${h.name}的更多操作`} title="更多操作"><Ellipsis size={18}/></DropdownMenuTrigger><DropdownMenuContent align="end" sideOffset={5} className="holding-menu"><DropdownMenuItem onClick={()=>open(h)}><Pencil size={15}/>编辑持仓</DropdownMenuItem><DropdownMenuItem variant="destructive" onClick={()=>setDeleting(h)}><Trash2 size={15}/>删除持仓</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>)}</div>
- {!account.holdings.length&&<div className="holdings-empty"><Layers3 size={24}/><b>还没有持仓</b><p>添加股票或 ETF，开始组合分析。</p><button className="text-button" onClick={()=>open()}>添加第一只持仓<Plus size={14}/></button></div>}
- <button className="cash-editor" onClick={()=>{setError('');setCashDraft(String(account.cash));setMode('cash')}}><span><Wallet size={14}/>可用现金</span><b>¥{money(account.cash,false)}</b><Pencil size={13}/></button><p className="holdings-note">本机保存 · 参考现价手动维护<br/>编辑记录不会自动扣减现金</p>
- <Dialog open={mode!==null} onOpenChange={v=>{if(!v)setMode(null)}}><DialogContent className="owl-dialog"><DialogTitle>{mode==='cash'?'编辑可用现金':mode==='edit'?'编辑持仓':'添加持仓'}</DialogTitle><DialogDescription>维护账户记录，不代表买卖交易。参考现价用于估算市值，尚未接入实时行情。</DialogDescription><form className="dialog-body" onSubmit={e=>{e.preventDefault();save()}}>{mode==='cash'?<label>可用现金（元）<input autoFocus type="number" min="0" max="1000000000000" step="0.01" required value={cashDraft} onChange={e=>setCashDraft(e.target.value)}/></label>:<div className="holding-form-grid">{([{key:'code',label:'证券代码',type:'text',placeholder:'如 510300'},{key:'name',label:'证券名称',type:'text',placeholder:'如 沪深 300 ETF'},{key:'quantity',label:'持有数量（股/份）',type:'number',placeholder:'100'},{key:'cost',label:'成本均价（元）',type:'number',placeholder:'每股/份成本'},{key:'price',label:'参考现价（元）',type:'number',placeholder:'手动填写估值价格'}] as const).map(f=><label key={f.key}>{f.label}<input autoFocus={f.key==='code'} type={f.type} inputMode={f.type==='number'?'decimal':undefined} min={f.key==='quantity'?1:f.key==='price'?0.000001:0} step={f.key==='quantity'?'1':'any'} maxLength={f.key==='code'?6:40} required placeholder={f.placeholder} value={draft[f.key]} onChange={e=>setDraft({...draft,[f.key]:e.target.value})}/></label>)}</div>}{error&&<p className="form-error" role="alert">{error}</p>}<div className="info-box">保存后重算总资产、持仓占比、浮动盈亏和模拟方案。现金单独维护，不会因添加或删除持仓自动变化。</div><div className="dialog-action-row"><button type="button" className="secondary-button" onClick={()=>setMode(null)}>取消</button><button type="submit" className="primary-button">保存{mode==='cash'?'现金':'持仓'}</button></div></form></DialogContent></Dialog>
- <AlertDialog open={deleting!==null} onOpenChange={v=>{if(!v)setDeleting(null)}}><AlertDialogContent className="owl-dialog"><AlertDialogTitle>删除这条持仓记录？</AlertDialogTitle><AlertDialogDescription>将移除「{deleting?.name}（{deleting?.code}）」，重新计算资产。不会卖出证券，也不会把市值转入现金。</AlertDialogDescription><div className="dialog-action-row"><AlertDialogCancel className="secondary-button">取消</AlertDialogCancel><button className="danger-button" onClick={()=>{if(deleting)onChange({...account,holdings:account.holdings.filter(h=>h.id!==deleting.id)});setDeleting(null)}}>确认删除</button></div></AlertDialogContent></AlertDialog></section>
+import { useState } from 'react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Layers3,
+  ChevronRight,
+  Wallet,
+  Ellipsis,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
+import {
+  type Account,
+  type Holding,
+  summarize,
+  validateHolding,
+} from '@/lib/holdings';
+import { money } from '@/lib/simulation';
+export function HoldingsPanel({
+  account,
+  selected,
+  onSelect,
+  onChange,
+}: {
+  account: Account;
+  selected: number;
+  onSelect: (n: number) => void;
+  onChange: (a: Account) => void;
+}) {
+  const [mode, setMode] = useState<'add' | 'edit' | 'cash' | null>(null),
+    [editing, setEditing] = useState<Holding | null>(null),
+    [deleting, setDeleting] = useState<Holding | null>(null),
+    [error, setError] = useState('');
+  const [draft, setDraft] = useState({
+      code: '',
+      name: '',
+      quantity: '100',
+      cost: '',
+      price: '',
+    }),
+    [cashDraft, setCashDraft] = useState('');
+  const summary = summarize(account);
+  function open(h?: Holding) {
+    setError('');
+    setEditing(h ?? null);
+    setDraft(
+      h
+        ? {
+            code: h.code,
+            name: h.name,
+            quantity: String(h.quantity),
+            cost: String(h.cost),
+            price: String(h.price),
+          }
+        : { code: '', name: '', quantity: '100', cost: '', price: '' },
+    );
+    setMode(h ? 'edit' : 'add');
+  }
+  function save() {
+    setError('');
+    if (mode === 'cash') {
+      const cash = Number(cashDraft);
+      if (
+        !cashDraft.trim() ||
+        !Number.isFinite(cash) ||
+        cash < 0 ||
+        cash > 1e12
+      ) {
+        setError('现金必须为 0 至 1 万亿元之间的有效金额。');
+        return;
+      }
+      onChange({ ...account, cash });
+      setMode(null);
+      return;
+    }
+    if (Object.values(draft).some((v) => !v.trim())) {
+      setError('请完整填写所有字段。');
+      return;
+    }
+    const h: Holding = {
+      id: editing?.id ?? crypto.randomUUID(),
+      code: draft.code.trim(),
+      name: draft.name.trim(),
+      quantity: Number(draft.quantity),
+      cost: Number(draft.cost),
+      price: Number(draft.price),
+      color:
+        editing?.color ??
+        ['#9f8bff', '#79adff', '#52ccb9', '#e3bb76'][
+          account.holdings.length % 4
+        ],
+      range: editing?.range,
+    };
+    const problem = validateHolding(h, account.holdings);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    if (!editing && account.holdings.length >= 100) {
+      setError('演示账户最多支持 100 只持仓。');
+      return;
+    }
+    onChange({
+      ...account,
+      holdings: editing
+        ? account.holdings.map((x) => (x.id === editing.id ? h : x))
+        : [...account.holdings, h],
+    });
+    setMode(null);
+  }
+  return (
+    <section className="panel holdings-panel" id="holdings">
+      <div className="panel-heading">
+        <h2>
+          我的持仓{' '}
+          <span>{String(account.holdings.length).padStart(2, '0')}</span>
+        </h2>
+        <button className="holding-add" onClick={() => open()}>
+          <Plus size={14} />
+          添加
+        </button>
+      </div>
+      <button
+        className={'portfolio-select ' + (selected === -1 ? 'selected' : '')}
+        onClick={() => onSelect(-1)}
+      >
+        <span className="portfolio-icon">
+          <Layers3 size={18} />
+        </span>
+        <span>
+          <b>全部资产</b>
+          <small>组合视角</small>
+        </span>
+        <ChevronRight size={15} />
+      </button>
+      <div className="holdings-list">
+        {summary.assets.map((h, i) => (
+          <div
+            className={'holding-row ' + (selected === i ? 'selected' : '')}
+            key={h.id}
+          >
+            <button
+              className="holding"
+              aria-label={`查看${h.name}持仓详情`}
+              onClick={() => onSelect(i)}
+            >
+              <div className="holding-name">
+                <i style={{ background: h.color }} />
+                <b>{h.name}</b>
+                <span>{h.allocation.toFixed(1)}%</span>
+              </div>
+              <div className="holding-data">
+                <small>
+                  {h.code} · {h.quantity.toLocaleString()} 股/份
+                </small>
+                <span>市值 ¥{money(h.value, false)}</span>
+                <span>
+                  参考现价 {h.price} · 成本 {h.cost}
+                </span>
+                <em className={h.pnl >= 0 ? 'up' : 'down'}>
+                  浮盈亏 {h.pnl >= 0 ? '+' : ''}
+                  {money(h.pnl)}
+                </em>
+              </div>
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="holding-more"
+                aria-label={`${h.name}的更多操作`}
+                title="更多操作"
+              >
+                <Ellipsis size={18} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                sideOffset={5}
+                className="holding-menu"
+              >
+                <DropdownMenuItem onClick={() => open(h)}>
+                  <Pencil size={15} />
+                  编辑持仓
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setDeleting(h)}
+                >
+                  <Trash2 size={15} />
+                  删除持仓
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ))}
+      </div>
+      {!account.holdings.length && (
+        <div className="holdings-empty">
+          <Layers3 size={24} />
+          <b>还没有持仓</b>
+          <p>添加股票或 ETF，开始组合分析。</p>
+          <button className="text-button" onClick={() => open()}>
+            添加第一只持仓
+            <Plus size={14} />
+          </button>
+        </div>
+      )}
+      <button
+        className="cash-editor"
+        onClick={() => {
+          setError('');
+          setCashDraft(String(account.cash));
+          setMode('cash');
+        }}
+      >
+        <span>
+          <Wallet size={14} />
+          可用现金
+        </span>
+        <b>¥{money(account.cash, false)}</b>
+        <Pencil size={13} />
+      </button>
+      <p className="holdings-note">
+        本机保存 · 参考现价手动维护
+        <br />
+        编辑记录不会自动扣减现金
+      </p>
+      <Dialog
+        open={mode !== null}
+        onOpenChange={(v) => {
+          if (!v) setMode(null);
+        }}
+      >
+        <DialogContent className="owl-dialog">
+          <DialogTitle>
+            {mode === 'cash'
+              ? '编辑可用现金'
+              : mode === 'edit'
+                ? '编辑持仓'
+                : '添加持仓'}
+          </DialogTitle>
+          <DialogDescription>
+            维护账户记录，不代表买卖交易。参考现价用于估算市值，尚未接入实时行情。
+          </DialogDescription>
+          <form
+            className="dialog-body"
+            onSubmit={(e) => {
+              e.preventDefault();
+              save();
+            }}
+          >
+            {mode === 'cash' ? (
+              <label>
+                可用现金（元）
+                <input
+                  type="number"
+                  min="0"
+                  max="1000000000000"
+                  step="0.01"
+                  required
+                  value={cashDraft}
+                  onChange={(e) => setCashDraft(e.target.value)}
+                />
+              </label>
+            ) : (
+              <div className="holding-form-grid">
+                {(
+                  [
+                    {
+                      key: 'code',
+                      label: '证券代码',
+                      type: 'text',
+                      placeholder: '如 510300',
+                    },
+                    {
+                      key: 'name',
+                      label: '证券名称',
+                      type: 'text',
+                      placeholder: '如 沪深 300 ETF',
+                    },
+                    {
+                      key: 'quantity',
+                      label: '持有数量（股/份）',
+                      type: 'number',
+                      placeholder: '100',
+                    },
+                    {
+                      key: 'cost',
+                      label: '成本均价（元）',
+                      type: 'number',
+                      placeholder: '每股/份成本',
+                    },
+                    {
+                      key: 'price',
+                      label: '参考现价（元）',
+                      type: 'number',
+                      placeholder: '手动填写估值价格',
+                    },
+                  ] as const
+                ).map((f) => (
+                  <label key={f.key}>
+                    {f.label}
+                    <input
+                      type={f.type}
+                      inputMode={f.type === 'number' ? 'decimal' : undefined}
+                      min={
+                        f.key === 'quantity'
+                          ? 1
+                          : f.key === 'price'
+                            ? 0.000001
+                            : 0
+                      }
+                      step={f.key === 'quantity' ? '1' : 'any'}
+                      maxLength={f.key === 'code' ? 6 : 40}
+                      required
+                      placeholder={f.placeholder}
+                      value={draft[f.key]}
+                      onChange={(e) =>
+                        setDraft({ ...draft, [f.key]: e.target.value })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            )}
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="info-box">
+              保存后重算总资产、持仓占比、浮动盈亏和模拟方案。现金单独维护，不会因添加或删除持仓自动变化。
+            </div>
+            <div className="dialog-action-row">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setMode(null)}
+              >
+                取消
+              </button>
+              <button type="submit" className="primary-button">
+                保存{mode === 'cash' ? '现金' : '持仓'}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={deleting !== null}
+        onOpenChange={(v) => {
+          if (!v) setDeleting(null);
+        }}
+      >
+        <AlertDialogContent className="owl-dialog">
+          <AlertDialogTitle>删除这条持仓记录？</AlertDialogTitle>
+          <AlertDialogDescription>
+            将移除「{deleting?.name}（{deleting?.code}
+            ）」，重新计算资产。不会卖出证券，也不会把市值转入现金。
+          </AlertDialogDescription>
+          <div className="dialog-action-row">
+            <AlertDialogCancel className="secondary-button">
+              取消
+            </AlertDialogCancel>
+            <button
+              className="danger-button"
+              onClick={() => {
+                if (deleting)
+                  onChange({
+                    ...account,
+                    holdings: account.holdings.filter(
+                      (h) => h.id !== deleting.id,
+                    ),
+                  });
+                setDeleting(null);
+              }}
+            >
+              确认删除
+            </button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
+  );
 }

@@ -21,11 +21,11 @@ if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file")" 2>/dev/null; then
 else
   rm -f "$pid_file"
   echo "正在启动本地开发服务…"
-  nohup npm run dev -- --host 127.0.0.1 --port 3000 < /dev/null >"$log_file" 2>&1 &
+  nohup npm run dev -- --host 127.0.0.1 --port 3018 < /dev/null >"$log_file" 2>&1 &
   echo $! >"$pid_file"
 fi
 
-preview_url="http://localhost:3000"
+preview_url="http://localhost:3018"
 for _ in $(seq 1 30); do
   if curl --fail --silent --show-error "$preview_url" >/dev/null; then
     if command -v open >/dev/null 2>&1; then

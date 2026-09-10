@@ -24,14 +24,15 @@ export function AdviceSummary({current,target,allocation,total,deposit,profile,l
 export function AdviceChart({allocation,days,account,deposit,customized}:{allocation:number;days:number;account:{total:number;riskAllocation:number};deposit:number;customized:boolean}) {
  const current=account.total+deposit?account.total*account.riskAllocation/(account.total+deposit):0;
  const values=[allocation,current].flatMap(a=>['bull','bear'].map(sc=>forecast(a,days,sc as 'bull'|'bear',deposit,account).percent));
- const bound=Math.max(6,Math.ceil(Math.max(...values.map(Math.abs))/3)*3);
+ const maxAbsoluteValue=values.reduce((maximum,value)=>Math.max(maximum,Math.abs(value)),0);
+ const bound=Math.max(6,Math.ceil(maxAbsoluteValue/3)*3);
  const y=(a:number,d:number,sc:'bull'|'base'|'bear')=>150-forecast(a,d,sc,deposit,account).percent/bound*108;
  const points=(a:number,sc:'bull'|'base'|'bear')=>Array.from({length:41},(_,i)=>[70+i*12.5,y(a,days*i/40,sc)]);
  const path=(pts:number[][])=>pts.map(([x,y],i)=>`${i?'L':'M'}${x},${y}`).join(' ');
  const band=path(points(allocation,'bull'))+' '+path(points(allocation,'bear').reverse()).replace('M','L')+' Z';
  return <div className="advice-chart">
   <div className="advice-chart-caption">未来 {days} 个交易日 · 相同市场假设下的组合对比</div>
-  <svg viewBox="0 0 650 300" role="img" aria-label="方案模拟：当前试算与维持现状的基准情景对比，阴影为上下情景范围，非预测概率">
+  <svg viewBox="0 0 650 300" aria-label="方案模拟：当前试算与维持现状的基准情景对比，阴影为上下情景范围，非预测概率">
    {[42,96,150,204,258].map((v,i)=><g key={v}><line x1="65" x2="575" y1={v} y2={v} stroke="#343044" strokeDasharray="3 5"/><text x="590" y={v+4} fill="#a9a2bb" fontSize="12">{(bound*(1-i/2)).toFixed(0)}%</text></g>)}
    <path d={band} fill="#8b83d9" opacity=".12"/>
    <path d={path(points(current,'base'))} fill="none" stroke="#929bac" strokeWidth="2" strokeDasharray="5 5"/>
