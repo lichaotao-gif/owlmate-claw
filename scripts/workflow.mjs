@@ -1,7 +1,10 @@
 import { spawnSync } from 'node:child_process';
 
 const EXPECTED_BRANCH = 'main';
-const EXPECTED_REMOTE = 'git@github.com:lichaotao-gif/owlmate-claw.git';
+const EXPECTED_REMOTES = new Set([
+  'git@github.com:lichaotao-gif/owlmate-claw.git',
+  'https://github.com/lichaotao-gif/owlmate-claw.git',
+]);
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -29,8 +32,8 @@ function verifyRepository() {
   if (branch !== EXPECTED_BRANCH) {
     fail(`当前分支是 ${branch || '未知'}，请切换到 ${EXPECTED_BRANCH} 后重试。`);
   }
-  if (remote !== EXPECTED_REMOTE) {
-    fail(`当前 origin 是 ${remote || '未知'}，不是 OwlMate 仓库 ${EXPECTED_REMOTE}。`);
+  if (!EXPECTED_REMOTES.has(remote)) {
+    fail(`当前 origin 是 ${remote || '未知'}，不是 OwlMate 的 GitHub 仓库。`);
   }
 }
 
@@ -48,7 +51,7 @@ function startWork() {
   run('git', ['pull', '--ff-only', 'origin', EXPECTED_BRANCH]);
 
   console.log('\n正在检查项目依赖…');
-  run('npm', ['install']);
+  run('pnpm', ['install', '--frozen-lockfile']);
 
   console.log('\nOwlMate 本地预览：http://localhost:3018/\n');
   run('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '3018']);
@@ -66,6 +69,7 @@ function syncWork() {
 
   if (workingTreeStatus()) {
     run('git', ['add', '-A']);
+    run('git', ['diff', '--cached', '--check']);
     run('git', ['commit', '-m', message]);
   } else {
     console.log('本机没有新的文件修改，将同步已有提交。');

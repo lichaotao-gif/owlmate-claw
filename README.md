@@ -6,9 +6,32 @@
 
 所有行情、历史曲线、事件和资产均为虚构示例。未来路径为情景示意，不是蒙特卡洛概率。对话为显式标注的预设意图响应，未连接语言模型、券商或真实行情。保存计划不执行交易。
 
-## 运行
+## 多电脑同步与运行
 
-保留 pnpm 锁文件。开发脚本 `pnpm dev`，生产构建 `pnpm build`。若本地 pnpm 自动安装策略阻碍启动，可直接使用 `node node_modules/vinext/dist/cli.js dev`。本次安装的第三方安装脚本未批准执行；现有构建已成功。
+每次开始工作：
+
+```bash
+cd ~/Documents/www/owlmate-claw
+npm run work:start
+```
+
+每次结束工作：
+
+```bash
+npm run sync:up -- "本次修改说明"
+```
+
+如果另一台电脑已经克隆过旧版本，先执行一次：
+
+```bash
+git pull --ff-only origin main
+```
+
+之后即可使用上述两个一键命令。最重要的顺序是：上一台电脑先执行 `sync:up`，下一台电脑再执行 `work:start`。
+
+`work:start` 会先确认处于 `main` 分支、本机没有未提交修改，以快进方式拉取远端，并按照 `pnpm-lock.yaml` 检查依赖，然后在 `http://localhost:3018/` 启动开发服务器。`sync:up` 会先检查 TypeScript，再提交全部本机修改、rebase 合并远端更新，最后推送到 GitHub；若发生冲突会停止，不会强行覆盖。
+
+项目保留 pnpm 锁文件。也可单独使用 `pnpm dev` 启动开发环境、使用 `pnpm build` 进行生产构建。若本地 pnpm 自动安装策略阻碍启动，可直接使用 `node node_modules/vinext/dist/cli.js dev`。
 
 ## 模拟
 
