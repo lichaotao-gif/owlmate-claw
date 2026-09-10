@@ -62,7 +62,7 @@ function syncDown() {
   }
 
   console.log('\n正在同步 OwlMate main 分支…');
-  run('git', ['pull', '--ff-only', 'origin', EXPECTED_BRANCH]);
+  run('git', ['-c', 'http.version=HTTP/1.1', 'pull', '--ff-only', 'origin', EXPECTED_BRANCH]);
 
   console.log('\n正在检查项目依赖…');
   ensureDependencies();
@@ -178,10 +178,10 @@ function syncWork() {
   }
 
   console.log('\n正在合并 GitHub main 的最新提交…');
-  run('git', ['pull', '--rebase', 'origin', EXPECTED_BRANCH]);
+  run('git', ['-c', 'http.version=HTTP/1.1', 'pull', '--rebase', 'origin', EXPECTED_BRANCH]);
 
   console.log('\n正在推送到 GitHub main…');
-  run('git', ['push', 'origin', EXPECTED_BRANCH]);
+  run('git', ['-c', 'http.version=HTTP/1.1', 'push', 'origin', EXPECTED_BRANCH]);
   stopDevServer();
   console.log('\n同步完成。可以安全切换到其他电脑。\n');
 }
