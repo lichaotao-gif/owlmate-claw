@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "vinext dev",
     "work:start": "node scripts/workflow.mjs start",
+    "sync:down": "node scripts/workflow.mjs down",
     "sync:up": "node scripts/workflow.mjs sync",
     "build": "vinext build && node scripts/prepare-static-output.mjs",
     "start": "wrangler dev --config dist/server/wrangler.json",

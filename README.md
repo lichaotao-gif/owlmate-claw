@@ -29,7 +29,9 @@ git pull --ff-only origin main
 
 之后即可使用上述两个一键命令。最重要的顺序是：上一台电脑先执行 `sync:up`，下一台电脑再执行 `work:start`。
 
-`work:start` 会先确认处于 `main` 分支、本机没有未提交修改，以快进方式拉取远端，并按照 `pnpm-lock.yaml` 检查依赖，然后在 `http://localhost:3018/` 启动开发服务器。`sync:up` 会先检查 TypeScript，再提交全部本机修改、rebase 合并远端更新，最后推送到 GitHub；若发生冲突会停止，不会强行覆盖。
+`work:start` 会先确认处于 `main` 分支、本机没有未提交修改，以快进方式拉取远端；仅在缺少依赖时按照 `pnpm-lock.yaml` 安装。随后它会在 `http://localhost:3018/` 启动开发服务器、检查首页响应、自动打开浏览器，并保持服务运行。也可单独运行 `npm run sync:down`，只同步代码和依赖，不启动服务。
+
+`sync:up` 会先检查 TypeScript，再提交全部本机修改、rebase 合并远端更新，最后推送到 GitHub；若发生冲突会停止，不会强行覆盖。同步成功后，它还会停止由本次 `work:start` 启动的开发服务。
 
 项目保留 pnpm 锁文件。也可单独使用 `pnpm dev` 启动开发环境、使用 `pnpm build` 进行生产构建。若本地 pnpm 自动安装策略阻碍启动，可直接使用 `node node_modules/vinext/dist/cli.js dev`。
 
