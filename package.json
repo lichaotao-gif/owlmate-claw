@@ -13,10 +13,7 @@
     "build": "vinext build && node scripts/prepare-static-output.mjs",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
-    "format": "oxfmt",
-    "sync:down": "bash scripts/sync-down.sh",
-    "sync:up": "bash scripts/sync-up.sh",
-    "work:start": "bash scripts/work-start.sh"
+    "format": "oxfmt"
   },
   "dependencies": {
     "react": "19.2.6",
