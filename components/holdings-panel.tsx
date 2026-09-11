@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import {
+  ArrowRight,
   Plus,
   Pencil,
   Trash2,
@@ -129,6 +130,14 @@ export function HoldingsPanel({
   }
   return (
     <section className="panel holdings-panel" id="holdings">
+      <span
+        className="holdings-flow-cue"
+        key={selected}
+        aria-hidden="true"
+        title="当前选择已同步到右侧推演"
+      >
+        <ArrowRight size={15} strokeWidth={2.2} />
+      </span>
       <div className="panel-heading">
         <h2>
           我的持仓{' '}

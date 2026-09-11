@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
-import Link from 'next/link';
 import {
   Activity,
   ArrowRight,
@@ -13,9 +12,7 @@ import {
   CircleGauge,
   CircleHelp,
   Expand,
-  FlaskConical,
   Layers3,
-  LayoutDashboard,
   MessageSquare,
   Plus,
   Radio,
@@ -25,7 +22,6 @@ import {
   Sparkles,
   Target,
   TrendingUp,
-  Users,
   Wallet,
   X,
 } from 'lucide-react';
@@ -69,6 +65,7 @@ import {
 } from '@/lib/simulation';
 import { StrategistSpotlight } from '@/components/strategist-spotlight';
 import { strategists } from '@/lib/strategists';
+import { AppRail } from '@/components/app-rail';
 
 type EventItem = {
   title: string;
@@ -651,85 +648,7 @@ export default function Home() {
   }
   return (
     <div className="app-shell">
-      <nav className="icon-rail" aria-label="页面区域">
-        <a href="#overview" className="brand-symbol" aria-label="OwlMate 首页">
-          <Glasses size={29} />
-        </a>
-        <div className="rail-links">
-          <a
-            href="#overview"
-            className="rail-item active"
-            aria-label="投资驾驶舱"
-            data-label="驾驶舱"
-          >
-            <LayoutDashboard />
-          </a>
-          <a
-            href="#holdings"
-            className="rail-item"
-            aria-label="我的持仓"
-            data-label="我的持仓"
-          >
-            <Wallet />
-          </a>
-          <a
-            href="#zones"
-            className="rail-item"
-            aria-label="持仓区间雷达"
-            data-label="区间雷达"
-          >
-            <CircleGauge />
-          </a>
-          <a
-            href="#simulation"
-            className="rail-item"
-            aria-label="仓位情景试算"
-            data-label="情景试算"
-          >
-            <FlaskConical />
-          </a>
-          <Link
-            href="/strategists"
-            className="rail-item"
-            aria-label="策略达人"
-            data-label="策略达人"
-          >
-            <Users />
-          </Link>
-          <a
-            href="#events"
-            className="rail-item"
-            aria-label="事件雷达"
-            data-label="事件雷达"
-          >
-            <Radio />
-          </a>
-          <button
-            className="rail-item"
-            aria-label="我的模拟方案"
-            data-label="我的方案"
-            onClick={() => planLibrary.current?.open()}
-          >
-            <Bookmark />
-          </button>
-        </div>
-        <button
-          className="rail-item rail-bottom"
-          aria-label="演示说明"
-          data-label="使用说明"
-          onClick={() => setDialog('method')}
-        >
-          <CircleHelp />
-        </button>
-        <button
-          className="avatar"
-          aria-label="投资画像"
-          data-label="投资画像"
-          onClick={() => setDialog('profile')}
-        >
-          O
-        </button>
-      </nav>
+      <AppRail />
       <div className="workspace" id="overview">
         <header className="topbar">
           <div className="wordmark">
@@ -744,6 +663,10 @@ export default function Home() {
             </span>
             <span className="snapshot">09.09 · 14:30 数据快照</span>
             <OnboardingDemo
+              onRegistered={(account) => {
+                setUserName(account.username);
+                setNotice(`注册成功，欢迎你，${account.username}。`);
+              }}
               onComplete={(next) => {
                 setProfile(next);
                 setUserName(next.username);
@@ -1164,8 +1087,52 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="risk-explanation">
-                    <b>{summary.largest?.name ?? '暂无持仓'}</b>
-                    <p>{concentration}</p>
+                    <div className="risk-source">
+                      <span>
+                        <Target size={15} />
+                      </span>
+                      <div>
+                        <small>主要风险来源</small>
+                        <b>{summary.largest?.name ?? '暂无持仓'}</b>
+                      </div>
+                    </div>
+                    <p>
+                      {concentration}
+                      {summary.largest && largestPercent >= 30
+                        ? ' 单一资产波动对组合影响较明显。'
+                        : summary.largest
+                          ? ' 当前集中度处于可观察范围。'
+                          : ''}
+                    </p>
+                  </div>
+                </div>
+                <div className="risk-factors" aria-label="组合风险指标">
+                  <div>
+                    <span className="risk-factor-icon risk-factor-allocation">
+                      <CircleGauge size={15} />
+                    </span>
+                    <p>
+                      <small>风险资产</small>
+                      <b>{currentAllocation.toFixed(1)}%</b>
+                    </p>
+                  </div>
+                  <div>
+                    <span className="risk-factor-icon risk-factor-assets">
+                      <Layers3 size={15} />
+                    </span>
+                    <p>
+                      <small>持仓分散</small>
+                      <b>{assets.length} 类</b>
+                    </p>
+                  </div>
+                  <div>
+                    <span className="risk-factor-icon risk-factor-cash">
+                      <Wallet size={15} />
+                    </span>
+                    <p>
+                      <small>现金缓冲</small>
+                      <b>{(100 - currentAllocation).toFixed(1)}%</b>
+                    </p>
                   </div>
                 </div>
                 <button

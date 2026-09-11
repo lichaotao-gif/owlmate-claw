@@ -6,8 +6,10 @@ import {
   ArrowRight,
   Bot,
   CheckCircle2,
+  ChevronDown,
   CircleGauge,
   CircleHelp,
+  Ellipsis,
   ListChecks,
   Pencil,
   ShieldCheck,
@@ -18,6 +20,12 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   type Account,
   type Holding,
@@ -60,6 +68,7 @@ export function ValuationZonePanel({
   onSimulate: (holding: Holding) => void;
 }) {
   const [filter, setFilter] = useState<Filter>('all');
+  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState<Holding | null>(null);
   const [explainingId, setExplainingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(blank);
@@ -81,6 +90,10 @@ export function ValuationZonePanel({
     (asset) => asset.id === explainingId,
   );
 
+  function chooseFilter(next: Filter) {
+    setFilter(next);
+    setExpanded(false);
+  }
   function openEditor(holding: Holding) {
     const range = holding.range;
     setEditing(holding);
@@ -150,7 +163,9 @@ export function ValuationZonePanel({
             <CircleGauge size={13} /> HOLDING ZONE RADAR
           </span>
           <h2 id="valuation-zone-title">持仓区间雷达</h2>
-          <p>Agent 综合估值区间、风险预算与集中度策略，生成可复核的建议区间。</p>
+          <p>
+            Agent 综合估值区间、风险预算与集中度策略，生成可复核的建议区间。
+          </p>
         </div>
         <div className="zone-status-summary">
           <span>
@@ -185,7 +200,7 @@ export function ValuationZonePanel({
               {assetsIn(item.zone).map((asset) => (
                 <button
                   key={asset.id}
-                  onClick={() => setFilter(item.zone)}
+                  onClick={() => chooseFilter(item.zone)}
                   aria-label={`查看${item.label}持仓，包含${asset.name}`}
                 >
                   <i style={{ background: asset.color }} />
@@ -218,7 +233,7 @@ export function ValuationZonePanel({
               .map((asset) => (
                 <button
                   key={asset.id}
-                  onClick={() => setFilter('review')}
+                  onClick={() => chooseFilter('review')}
                   aria-label={`查看需要复核的持仓，包含${asset.name}`}
                 >
                   <i style={{ background: asset.color }} />
@@ -261,146 +276,173 @@ export function ValuationZonePanel({
           <button
             key={item.id}
             aria-pressed={filter === item.id}
-            onClick={() => setFilter(item.id)}
+            onClick={() => chooseFilter(item.id)}
           >
             {item.label}
             <span>{filterCount(item.id)}</span>
           </button>
         ))}
       </div>
-      <div className="zone-list">
-        {rows.map((asset) => (
-          <article
-            className={`zone-row zone-row-${asset.valuation}`}
-            key={asset.id}
-          >
-            <div className="zone-asset">
-              <span
-                className="zone-asset-icon"
-                style={{ '--asset-color': asset.color } as React.CSSProperties}
+      {rows.length ? (
+        <>
+          <div className={'zone-grid' + (expanded ? '' : ' collapsed')}>
+            {rows.map((asset) => (
+              <article
+                className={`zone-card zone-card-${asset.valuation}`}
+                key={asset.id}
               >
-                {asset.needsReview ? (
-                  <AlertTriangle size={16} />
-                ) : (
-                  <CheckCircle2 size={16} />
-                )}
-              </span>
-              <div>
-                <h3>
-                  {asset.name}
-                  <small>{asset.code}</small>
-                </h3>
-                <p>
-                  当前仓位 {asset.allocation.toFixed(1)}% · 市值 ¥
-                  {Math.round(asset.value).toLocaleString('zh-CN')}
-                </p>
-              </div>
-            </div>
-            {asset.range ? (
-              <div className="zone-range">
-                <div className="zone-range-labels">
-                  <span>低于 {asset.range.valuationLow}</span>
-                  <b>
-                    建议 {asset.range.valuationLow}–{asset.range.valuationHigh}
-                  </b>
-                  <span>高于 {asset.range.valuationHigh}</span>
-                </div>
-                <figure
-                  className="valuation-track"
-                  aria-label={`${asset.name}当前价格 ${asset.price}，${valuationLabels[asset.valuation]}`}
-                >
-                  <span className="low" />
-                  <span className="safe" />
-                  <span className="high" />
-                  <i
-                    style={{
-                      left: `${markerPosition(asset.price, asset.range)}%`,
-                    }}
+                <div className="zone-card-head">
+                  <span
+                    className="zone-asset-icon"
+                    style={
+                      { '--asset-color': asset.color } as React.CSSProperties
+                    }
                   >
-                    <b>{asset.price}</b>
-                  </i>
-                </figure>
-                <div className="zone-range-foot">
-                  <span>
-                    {asset.range.note && asset.range.note !== '演示区间'
-                      ? asset.range.note
-                      : 'Agent 综合建议'}{' '}
-                    ·{' '}
-                    {new Date(asset.range.updatedAt).toLocaleDateString(
-                      'zh-CN',
+                    {asset.needsReview ? (
+                      <AlertTriangle size={16} />
+                    ) : (
+                      <CheckCircle2 size={16} />
                     )}
                   </span>
-                  <span>
-                    目标仓位 {asset.range.weightLow}%–{asset.range.weightHigh}%
+                  <div className="zone-card-identity">
+                    <h3>
+                      {asset.name}
+                      <small>{asset.code}</small>
+                    </h3>
+                    <p>
+                      当前仓位 {asset.allocation.toFixed(1)}% · 市值 ¥
+                      {Math.round(asset.value).toLocaleString('zh-CN')}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="zone-card-more"
+                      aria-label={`${asset.name}的更多操作`}
+                      title="更多操作"
+                    >
+                      <Ellipsis size={18} />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      sideOffset={5}
+                      className="holding-menu"
+                    >
+                      {asset.range && (
+                        <DropdownMenuItem
+                          onClick={() => setExplainingId(asset.id)}
+                        >
+                          <CircleHelp size={15} />
+                          依据什么
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => openEditor(asset)}>
+                        <Pencil size={15} />
+                        {asset.range ? '调整区间' : '设置区间'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={!asset.range}
+                        onClick={() => onSimulate(asset)}
+                      >
+                        <ArrowRight size={15} />
+                        调仓试算
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="zone-card-badges">
+                  <span className={`zone-badge ${asset.valuation}`}>
+                    {valuationLabels[asset.valuation]}
+                  </span>
+                  <span className={`weight-badge ${asset.weight}`}>
+                    {weightLabels[asset.weight]}
                   </span>
                 </div>
-              </div>
-            ) : (
-              <button
-                className="zone-empty-range"
-                onClick={() => openEditor(asset)}
-              >
-                <CircleGauge size={17} />
-                <span>
-                  <b>尚未设置合理区间</b>
-                  <small>设置价格与目标仓位后开始判断</small>
-                </span>
-                <ArrowRight size={14} />
-              </button>
-            )}
-            <div className="zone-verdict">
-              <div>
-                <span className={`zone-badge ${asset.valuation}`}>
-                  {valuationLabels[asset.valuation]}
-                </span>
-                <span className={`weight-badge ${asset.weight}`}>
-                  {weightLabels[asset.weight]}
-                </span>
-              </div>
-              <strong>{asset.action}</strong>
-              {asset.nearBoundary && (
-                <small>
-                  <AlertTriangle size={12} />
-                  价格已接近区间边界
-                </small>
-              )}
-              <div className="zone-actions">
-                {asset.range && (
+                {asset.range ? (
+                  <div className="zone-range">
+                    <div className="zone-range-labels">
+                      <span>低于 {asset.range.valuationLow}</span>
+                      <b>
+                        建议 {asset.range.valuationLow}–
+                        {asset.range.valuationHigh}
+                      </b>
+                      <span>高于 {asset.range.valuationHigh}</span>
+                    </div>
+                    <figure
+                      className="valuation-track"
+                      aria-label={`${asset.name}当前价格 ${asset.price}，${valuationLabels[asset.valuation]}`}
+                    >
+                      <span className="low" />
+                      <span className="safe" />
+                      <span className="high" />
+                      <i
+                        style={{
+                          left: `${markerPosition(asset.price, asset.range)}%`,
+                        }}
+                      >
+                        <b>{asset.price}</b>
+                      </i>
+                    </figure>
+                    <div className="zone-range-foot">
+                      <span>
+                        {asset.range.note && asset.range.note !== '演示区间'
+                          ? asset.range.note
+                          : 'Agent 综合建议'}{' '}
+                        ·{' '}
+                        {new Date(asset.range.updatedAt).toLocaleDateString(
+                          'zh-CN',
+                        )}
+                      </span>
+                      <span>
+                        目标仓位 {asset.range.weightLow}%–
+                        {asset.range.weightHigh}%
+                      </span>
+                    </div>
+                  </div>
+                ) : (
                   <button
-                    className="zone-evidence-action"
-                    onClick={() => setExplainingId(asset.id)}
+                    className="zone-empty-range"
+                    onClick={() => openEditor(asset)}
                   >
-                    <CircleHelp size={13} />
-                    依据什么
+                    <CircleGauge size={17} />
+                    <span>
+                      <b>尚未设置合理区间</b>
+                      <small>设置价格与目标仓位后开始判断</small>
+                    </span>
+                    <ArrowRight size={14} />
                   </button>
                 )}
-                <button onClick={() => openEditor(asset)}>
-                  <Pencil size={13} />
-                  {asset.range ? '调整区间' : '设置区间'}
-                </button>
-                <button
-                  className="zone-simulate"
-                  onClick={() => onSimulate(asset)}
-                  disabled={!asset.range}
-                >
-                  调仓试算
-                  <ArrowRight size={13} />
-                </button>
-              </div>
-            </div>
-          </article>
-        ))}
-        {!rows.length && (
-          <div className="zone-empty-list">
-            <CheckCircle2 size={22} />
-            <b>当前筛选项为空</b>
-            <p>换一个条件查看其他持仓。</p>
+                <div className="zone-card-foot">
+                  <strong>{asset.action}</strong>
+                  {asset.nearBoundary && (
+                    <small>
+                      <AlertTriangle size={12} />
+                      价格已接近区间边界
+                    </small>
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
-        )}
-      </div>
+          <button
+            className={'zone-expand' + (expanded ? ' open' : '')}
+            aria-expanded={expanded}
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? '收起持仓' : `展开全部 ${rows.length} 只持仓`}
+            <ChevronDown size={14} />
+          </button>
+        </>
+      ) : (
+        <div className="zone-empty-list">
+          <CheckCircle2 size={22} />
+          <b>当前筛选项为空</b>
+          <p>换一个条件查看其他持仓。</p>
+        </div>
+      )}
       <p className="zone-disclaimer">
         <ShieldCheck size={13} />
-        “建议区间”由 Agent 演示规则综合生成，可由用户调整；仅用于复核与情景试算，不代表安全承诺或买卖建议。
+        “建议区间”由 Agent
+        演示规则综合生成，可由用户调整；仅用于复核与情景试算，不代表安全承诺或买卖建议。
       </p>
       <Dialog
         open={explained !== undefined}
@@ -409,52 +451,107 @@ export function ValuationZonePanel({
         }}
       >
         <DialogContent className="owl-dialog zone-evidence-dialog">
-          <DialogTitle>{explained?.name ?? '持仓'} · Agent 建议依据</DialogTitle>
+          <DialogTitle>
+            {explained?.name ?? '持仓'} · Agent 建议依据
+          </DialogTitle>
           <DialogDescription>
             展示本次建议实际使用的输入、策略规则与数据边界。
           </DialogDescription>
           {explained?.range && (
             <div className="zone-evidence-body">
               <div className="zone-evidence-summary">
-                <span className="zone-evidence-icon"><Bot size={18} /></span>
+                <span className="zone-evidence-icon">
+                  <Bot size={18} />
+                </span>
                 <div>
                   <span>Agent 综合结论</span>
                   <strong>{explained.action}</strong>
                   <p>
-                    价格处于“{valuationLabels[explained.valuation]}”，仓位处于“{weightLabels[explained.weight]}”。
+                    价格处于“{valuationLabels[explained.valuation]}”，仓位处于“
+                    {weightLabels[explained.weight]}”。
                   </p>
                 </div>
               </div>
               <div className="zone-evidence-inputs">
-                <span>参考现价 <b>{explained.price}</b></span>
-                <span>建议价格 <b>{explained.range.valuationLow}–{explained.range.valuationHigh}</b></span>
-                <span>当前仓位 <b>{explained.allocation.toFixed(1)}%</b></span>
-                <span>建议仓位 <b>{explained.range.weightLow}%–{explained.range.weightHigh}%</b></span>
+                <span>
+                  参考现价 <b>{explained.price}</b>
+                </span>
+                <span>
+                  建议价格{' '}
+                  <b>
+                    {explained.range.valuationLow}–
+                    {explained.range.valuationHigh}
+                  </b>
+                </span>
+                <span>
+                  当前仓位 <b>{explained.allocation.toFixed(1)}%</b>
+                </span>
+                <span>
+                  建议仓位{' '}
+                  <b>
+                    {explained.range.weightLow}%–{explained.range.weightHigh}%
+                  </b>
+                </span>
               </div>
-              <section className="zone-strategy-section" aria-labelledby="zone-strategy-title">
-                <h3 id="zone-strategy-title"><ListChecks size={15} /> 哪些策略参与了分析</h3>
+              <section
+                className="zone-strategy-section"
+                aria-labelledby="zone-strategy-title"
+              >
+                <h3 id="zone-strategy-title">
+                  <ListChecks size={15} /> 哪些策略参与了分析
+                </h3>
                 <div className="zone-strategy-list">
                   <article>
                     <span>已参与</span>
-                    <div><b>估值区间策略</b><p>将参考现价与建议价格上下限比较，判断低于、处于或高于建议区间。</p></div>
+                    <div>
+                      <b>估值区间策略</b>
+                      <p>
+                        将参考现价与建议价格上下限比较，判断低于、处于或高于建议区间。
+                      </p>
+                    </div>
                   </article>
                   <article>
                     <span>已参与</span>
-                    <div><b>风险预算策略</b><p>将当前持仓占比与建议仓位区间比较，识别仓位不足、合理或过高。</p></div>
+                    <div>
+                      <b>风险预算策略</b>
+                      <p>
+                        将当前持仓占比与建议仓位区间比较，识别仓位不足、合理或过高。
+                      </p>
+                    </div>
                   </article>
                   <article>
-                    <span className={explained.weight === 'over' ? 'triggered' : ''}>{explained.weight === 'over' ? '已触发' : '已检查'}</span>
-                    <div><b>集中度约束</b><p>仓位高于建议上限时提高复核优先级，避免单一持仓暴露继续扩大。</p></div>
+                    <span
+                      className={explained.weight === 'over' ? 'triggered' : ''}
+                    >
+                      {explained.weight === 'over' ? '已触发' : '已检查'}
+                    </span>
+                    <div>
+                      <b>集中度约束</b>
+                      <p>
+                        仓位高于建议上限时提高复核优先级，避免单一持仓暴露继续扩大。
+                      </p>
+                    </div>
                   </article>
                   <article>
-                    <span className={explained.nearBoundary ? 'triggered' : ''}>{explained.nearBoundary ? '已触发' : '已检查'}</span>
-                    <div><b>临界预警策略</b><p>价格距离建议区间边界不超过 {explained.range.alertBuffer}% 时，提前加入复核清单。</p></div>
+                    <span className={explained.nearBoundary ? 'triggered' : ''}>
+                      {explained.nearBoundary ? '已触发' : '已检查'}
+                    </span>
+                    <div>
+                      <b>临界预警策略</b>
+                      <p>
+                        价格距离建议区间边界不超过 {explained.range.alertBuffer}
+                        % 时，提前加入复核清单。
+                      </p>
+                    </div>
                   </article>
                 </div>
               </section>
               <div className="zone-evidence-limit">
                 <ShieldCheck size={14} />
-                <p><b>当前未参与</b>实时行情、财务数据、新闻事件、盈利预测与真实策略回测尚未接入；因此这是可解释的演示规则结果，不是实时投资建议。</p>
+                <p>
+                  <b>当前未参与</b>
+                  实时行情、财务数据、新闻事件、盈利预测与真实策略回测尚未接入；因此这是可解释的演示规则结果，不是实时投资建议。
+                </p>
               </div>
             </div>
           )}

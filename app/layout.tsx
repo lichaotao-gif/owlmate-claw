@@ -5,6 +5,12 @@ export const metadata: Metadata = {
   description: '看清持仓，从容决策。OwlMate 投资驾驶舱交互演示。',
   icons: { icon: '/favicon.svg' },
 };
-export default function RootLayout({ children }: Readonly<{children: React.ReactNode}>) {
-  return <html lang="zh-CN" className="dark"><body>{children}</body></html>;
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="zh-CN" className="dark">
+      <body>{children}</body>
+    </html>
+  );
 }
