@@ -27,7 +27,7 @@ export const initialAccount: Account = {
       name: '纳指 ETF',
       quantity: 207200,
       cost: 1.7,
-      price: 1.862,
+      price: 2.201,
       color: '#9f8bff',
       range: {
         valuationLow: 1.65,
@@ -45,7 +45,7 @@ export const initialAccount: Account = {
       name: '沪深 300 ETF',
       quantity: 62900,
       cost: 3.9,
-      price: 4.086,
+      price: 4.579,
       color: '#79adff',
       range: {
         valuationLow: 3.7,
@@ -63,7 +63,7 @@ export const initialAccount: Account = {
       name: '创业板 ETF',
       quantity: 98900,
       cost: 2.5,
-      price: 2.341,
+      price: 3.341,
       color: '#52ccb9',
       range: {
         valuationLow: 2.4,
@@ -81,7 +81,7 @@ export const initialAccount: Account = {
       name: '黄金 ETF',
       quantity: 21200,
       cost: 6.8,
-      price: 7.258,
+      price: 8.943,
       color: '#e3bb76',
       range: {
         valuationLow: 6.2,

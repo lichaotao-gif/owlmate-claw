@@ -64,6 +64,15 @@ import {
 import { StrategistSpotlight } from '@/components/strategist-spotlight';
 import { strategists } from '@/lib/strategists';
 import { AppRail } from '@/components/app-rail';
+import {
+  applyMarketSnapshot,
+  assetHistory,
+  formatMarketDate,
+  marketQuote,
+  marketSnapshotDate,
+  portfolioHistory,
+  type HistoricalPoint,
+} from '@/lib/market-data';
 
 type EventItem = {
   title: string;
@@ -74,6 +83,11 @@ type EventItem = {
   desc: string;
   question: string;
 };
+
+const MARKET_VERSION_KEY = 'owlmate-market-data-version';
+const tickerQuotes = ['513100', '510300', '159915', '518880']
+  .map(marketQuote)
+  .filter((quote): quote is NonNullable<typeof quote> => Boolean(quote));
 function buildEvents(summary: ReturnType<typeof summarize>): EventItem[] {
   const { assets, largest, riskAllocation } = summary;
   const list: EventItem[] = [];
@@ -135,6 +149,7 @@ function Projection({
   selected,
   account,
   focusName,
+  historySeries,
   deposit = 0,
   large = false,
 }: {
@@ -144,6 +159,7 @@ function Projection({
   selected: number;
   account: { total: number; riskAllocation: number };
   focusName: string;
+  historySeries: HistoricalPoint[];
   deposit?: number;
   large?: boolean;
 }) {
@@ -151,20 +167,20 @@ function Projection({
   const chartRef = useRef<SVGSVGElement>(null);
   const seed = selected + 2;
   const paths = useMemo(() => {
-    const hist = Array.from({ length: 65 }, (_, i) => [
-      i * 6.25,
-      232 - i * 1.19 + Math.sin(i * 1.18 + seed) * 8 + Math.sin(i * 0.36) * 11,
-    ]);
-    hist[64] = [400, 164];
     const path = (points: number[][]) =>
       points
         .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`)
         .join(' ');
     const amp = (allocation / 80) * Math.sqrt(days / 20);
+    const historyDeviation = historySeries.reduce(
+      (max, point) => Math.max(max, Math.abs(point.normalized - 100)),
+      0,
+    );
     const bound = Math.max(
       12,
       Math.ceil(
         Math.max(
+          historyDeviation * 1.08,
           Math.abs(
             forecast(allocation, days, 'bear', deposit, account).percent,
           ),
@@ -174,6 +190,13 @@ function Projection({
         ) / 6,
       ) * 6,
     );
+    const historyValues = historySeries.length
+      ? historySeries
+      : [{ date: marketSnapshotDate, value: account.total, normalized: 100 }];
+    const hist = historyValues.map((point, i) => [
+      historyValues.length > 1 ? (i / (historyValues.length - 1)) * 400 : 400,
+      164 - ((point.normalized - 100) * 128) / bound,
+    ]);
     const futureY = (i: number, sc: Scenario) =>
       164 -
       (forecast(
@@ -221,8 +244,13 @@ function Projection({
           }),
         ),
       ),
+      firstDate: historyValues[0]?.date ?? marketSnapshotDate,
+      middleDate:
+        historyValues[Math.floor(historyValues.length / 2)]?.date ??
+        marketSnapshotDate,
+      lastDate: historyValues.at(-1)?.date ?? marketSnapshotDate,
     };
-  }, [allocation, days, seed, deposit, account]);
+  }, [allocation, days, seed, deposit, account, historySeries]);
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
@@ -244,12 +272,16 @@ function Projection({
     };
   }, []);
   const active = scenario === 'bear' ? 0 : scenario === 'base' ? 1 : 2;
+  const hoveredHistorical =
+    hover !== null && hover <= 400 && historySeries.length
+      ? historySeries[Math.round((hover / 400) * (historySeries.length - 1))]
+      : null;
   return (
     <div className={'projection ' + (large ? 'large' : '')}>
       <div className="chart-top-labels">
         <span>
           <i className="legend-dot history-dot" />
-          历史示意
+          {focusName} · 近 {historySeries.length || 1} 个交易日收盘
         </span>
         <span className="future-label">
           <Sparkles size={12} />
@@ -259,7 +291,7 @@ function Projection({
       <svg
         ref={chartRef}
         viewBox="0 0 780 345"
-        aria-label={`${focusName}历史示意和未来${days}日三种假设情景。非实际行情，非概率预测。`}
+        aria-label={`${focusName}截至${marketSnapshotDate}的历史收盘走势，以及未来${days}日三种假设情景。未来部分非行情预测。`}
       >
         <defs>
           <linearGradient
@@ -376,12 +408,11 @@ function Projection({
         <circle cx="400" cy="164" r="4" fill="#d0bcff" />
         <rect x="373" y="305" width="54" height="23" rx="5" fill="#30253f" />
         <text x="400" y="321" textAnchor="middle" fontSize="11" fill="#d2bbf9">
-          今天
+          {formatMarketDate(paths.lastDate)}
         </text>
         {[
-          [0, '08.12'],
-          [135, '08.21'],
-          [265, '08.31'],
+          [0, formatMarketDate(paths.firstDate)],
+          [200, formatMarketDate(paths.middleDate)],
           [540, `+${Math.round(days / 2)}日`],
           [685, `+${days}日`],
         ].map(([x, t]) => (
@@ -421,8 +452,8 @@ function Projection({
               fontSize="12"
               fill="#e1dbea"
             >
-              {hover < 400
-                ? '历史净值示意 · 基准 100'
+              {hoveredHistorical
+                ? `${formatMarketDate(hoveredHistorical.date)} · ${hoveredHistorical.normalized.toFixed(2)}`
                 : `${scenarioLabels[scenario]} · 非概率预测`}
             </text>
           </g>
@@ -447,7 +478,10 @@ function Projection({
           />
           下跌情景
         </span>
-        <small>历史及区间均为示意 · 非概率预测</small>
+        <small>
+          历史收盘数据截至 {marketSnapshotDate.replaceAll('-', '.')} ·
+          未来为情景推演
+        </small>
       </div>
     </div>
   );
@@ -538,10 +572,14 @@ export default function Home() {
       let stored = initialAccount;
       try {
         const raw = localStorage.getItem('owlmate-account-v1');
-        if (raw) {
-          stored = parseAccount(raw);
-          setAccount(stored);
+        if (raw) stored = parseAccount(raw);
+        if (localStorage.getItem(MARKET_VERSION_KEY) !== marketSnapshotDate) {
+          stored = applyMarketSnapshot(stored);
+          localStorage.setItem('owlmate-account-v1', JSON.stringify(stored));
+          localStorage.setItem(MARKET_VERSION_KEY, marketSnapshotDate);
+          window.dispatchEvent(new Event('owlmate-data-change'));
         }
+        setAccount(stored);
       } catch {
         setNotice('无法读取本机账户，暂用示例数据。原存储未覆盖。');
       }
@@ -571,6 +609,13 @@ export default function Home() {
     );
   const focusName =
     selected < 0 ? '我的组合' : (assets[selected]?.name ?? '我的组合');
+  const historySeries = useMemo(
+    () =>
+      selected < 0
+        ? portfolioHistory(account.holdings, account.cash)
+        : assetHistory(account.holdings[selected]?.code ?? ''),
+    [account, selected],
+  );
   const activeEvent = events[Math.min(eventIndex, events.length - 1)];
   const planLibrary = useRef<PlanLibraryHandle>(null);
   useEffect(() => {
@@ -662,7 +707,9 @@ export default function Home() {
               <i />
               交互演示
             </span>
-            <span className="snapshot">09.09 · 14:30 数据快照</span>
+            <span className="snapshot">
+              {formatMarketDate(marketSnapshotDate)} · 收盘数据
+            </span>
             <OnboardingDemo
               onRegistered={(account) => {
                 setUserName(account.username);
@@ -707,19 +754,17 @@ export default function Home() {
             <i />
             市场快照
           </span>
-          {[
-            ['上证指数', '3,862.41', '+0.46%'],
-            ['沪深 300', '4,421.68', '+0.62%'],
-            ['创业板指', '2,816.52', '−0.86%'],
-            ['黄金现货', '3,642.80', '+0.35%'],
-          ].map(([n, v, c]) => (
-            <div className="ticker-item" key={n}>
-              <span>{n}</span>
-              <b>{v}</b>
-              <em className={c.startsWith('+') ? 'up' : 'down'}>{c}</em>
+          {tickerQuotes.map((quote) => (
+            <div className="ticker-item" key={quote.code}>
+              <span>{quote.name}</span>
+              <b>{quote.price.toFixed(3)}</b>
+              <em className={quote.change >= 0 ? 'up' : 'down'}>
+                {quote.change >= 0 ? '+' : '−'}
+                {Math.abs(quote.change).toFixed(2)}%
+              </em>
             </div>
           ))}
-          <span className="ticker-note">全部为示例数据</span>
+          <span className="ticker-note">历史文件收盘快照</span>
         </div>
         <main className={'main-layout ' + (!chatOpen ? 'chat-collapsed' : '')}>
           <div className="dashboard">
@@ -864,7 +909,10 @@ export default function Home() {
                       历史走势与未来推演{' '}
                       <span className="purple-tag">DEMO</span>
                     </h2>
-                    <p>我的组合 · 演示规则生成 · 非行情预测</p>
+                    <p>
+                      历史行情截至 {marketSnapshotDate.replaceAll('-', '.')} ·
+                      未来为情景推演
+                    </p>
                   </div>
                   <button
                     className="icon-button"
@@ -919,6 +967,7 @@ export default function Home() {
                   deposit={deposit}
                   account={simulationAccount}
                   focusName={focusName}
+                  historySeries={historySeries}
                 />
                 {healthSource && (
                   <output className="health-source">
@@ -1453,6 +1502,7 @@ export default function Home() {
               deposit={deposit}
               account={simulationAccount}
               focusName={focusName}
+              historySeries={historySeries}
               large
             />
           )}
