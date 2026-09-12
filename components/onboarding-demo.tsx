@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { activateDemoSession, saveProfile } from '@/lib/profile-store';
 import {
   ArrowLeft,
   ArrowRight,
@@ -77,7 +78,11 @@ function SelectField({
 export function OnboardingDemo({
   onRegistered,
   onComplete,
+  editProfile,
+  profileOnly = false,
 }: {
+  editProfile?: InvestorProfile | null;
+  profileOnly?: boolean;
   onRegistered?: (account: { username: string; phoneMasked: string }) => void;
   onComplete: (profile: InvestorProfile) => void;
 }) {
@@ -110,7 +115,9 @@ export function OnboardingDemo({
       return;
     }
 
-    onRegistered?.({ username: form.username.trim(), phoneMasked });
+    const account = { username: form.username.trim(), phoneMasked };
+    activateDemoSession(account);
+    onRegistered?.(account);
     setStage('registration-success');
   }
 
@@ -129,9 +136,9 @@ export function OnboardingDemo({
     const riskLabel =
       allocation <= 35 ? '谨慎型' : allocation <= 60 ? '稳健型' : '成长型';
 
-    onComplete({
+    const next: InvestorProfile = {
       username: form.username.trim(),
-      phoneMasked,
+      phoneMasked: profileOnly ? (editProfile?.phoneMasked ?? '') : phoneMasked,
       ageRange: form.ageRange,
       experience: form.experience,
       goal: form.goal,
@@ -142,7 +149,14 @@ export function OnboardingDemo({
       liquidity: form.liquidity,
       recommendedAllocation: allocation,
       riskLabel,
-    });
+    };
+    try {
+      saveProfile(next);
+    } catch {
+      setError('保存失败，浏览器存储不可用。请重试，填写内容已保留。');
+      return;
+    }
+    onComplete(next);
     setOpen(false);
     setStage('register');
     setError('');
@@ -155,12 +169,31 @@ export function OnboardingDemo({
 
   return (
     <>
-      <button className="new-user-demo" onClick={() => setOpen(true)}>
+      <button
+        className="new-user-demo"
+        onClick={() => {
+          if (profileOnly) {
+            setForm({
+              ...initial,
+              ...editProfile,
+              username: editProfile?.username ?? '演示账户',
+            });
+            setStage('profile-background');
+          }
+          setError('');
+          setOpen(true);
+        }}
+      >
         <UserPlus size={15} />
-        新用户演示
+        {profileOnly
+          ? editProfile
+            ? '修改投资画像'
+            : '填写投资画像'
+          : '新用户演示'}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="owl-dialog onboarding-dialog">
+          {isProfile && error && <p className="down">{error}</p>}
           {stage === 'register' && (
             <>
               <DialogTitle>注册 OwlMate 演示账户</DialogTitle>
@@ -306,7 +339,7 @@ export function OnboardingDemo({
             <>
               <DialogTitle>建立你的投资画像</DialogTitle>
               <DialogDescription>
-                画像与账号注册相互独立，只用于生成本页的个性化演示建议。
+                画像与账号注册相互独立，保存在当前浏览器，用于首页建议与持仓体检。
               </DialogDescription>
               <div
                 className="onboarding-progress profile-onboarding-progress"
@@ -423,16 +456,22 @@ export function OnboardingDemo({
                 <button
                   className="secondary-button"
                   type="button"
-                  onClick={() =>
+                  onClick={() => {
+                    if (profileOnly && stage === 'profile-background') {
+                      setOpen(false);
+                      return;
+                    }
                     setStage(
                       stage === 'profile-risk'
                         ? 'profile-background'
                         : 'registration-success',
-                    )
-                  }
+                    );
+                  }}
                 >
                   <ArrowLeft size={15} />
-                  上一步
+                  {profileOnly && stage === 'profile-background'
+                    ? '取消'
+                    : '上一步'}
                 </button>
                 <button
                   className="primary-button"
@@ -443,7 +482,7 @@ export function OnboardingDemo({
                       : setStage('profile-risk')
                   }
                 >
-                  {stage === 'profile-risk' ? '生成我的投资画像' : '继续'}
+                  {stage === 'profile-risk' ? '保存投资画像' : '继续'}
                   <ArrowRight size={15} />
                 </button>
               </div>

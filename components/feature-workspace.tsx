@@ -23,6 +23,8 @@ import {
   UserRound,
   Wallet,
 } from 'lucide-react';
+import { OnboardingDemo } from '@/components/onboarding-demo';
+import { useInvestorProfile } from '@/lib/profile-store';
 import { AppRail } from '@/components/app-rail';
 import { HoldingsPanel } from '@/components/holdings-panel';
 import { ValuationZonePanel } from '@/components/valuation-zone-panel';
@@ -42,6 +44,7 @@ import {
   type Scenario,
 } from '@/lib/simulation';
 import { assessAccount } from '@/lib/valuation-zones';
+import { platformIdentity } from '@/lib/platform-identity';
 
 export type FeatureSection =
   | 'holdings'
@@ -113,6 +116,7 @@ function useLocalAccount() {
     setAccount(next);
     try {
       localStorage.setItem('owlmate-account-v1', JSON.stringify(next));
+      window.dispatchEvent(new Event('owlmate-data-change'));
       setNotice('账户已保存在本机，相关页面会同步使用最新数据。');
     } catch {
       setNotice('页面已更新，但本机存储失败，刷新后可能恢复原数据。');
@@ -692,34 +696,129 @@ function HelpView() {
 }
 
 function ProfileView({ account }: { account: Account }) {
+  const { profile, error } = useInvestorProfile();
+  const [savedPlans, setSavedPlans] = useState(0);
   const summary = summarize(account);
+  useEffect(() => {
+    const refresh = () => {
+      try {
+        const raw = localStorage.getItem('owlmate-plans-v2');
+        setSavedPlans(raw ? readPlans(raw).length : 0);
+      } catch {
+        setSavedPlans(0);
+      }
+    };
+    refresh();
+    window.addEventListener('storage', refresh);
+    window.addEventListener('owlmate-data-change', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('owlmate-data-change', refresh);
+    };
+  }, []);
+  const identity = platformIdentity(profile, account, savedPlans);
+  const riskPosition = profile?.recommendedAllocation ?? 65;
   return (
     <div className="feature-profile-layout">
       <section className="panel profile-account-card">
-        <span className="profile-large-avatar">演</span>
+        <span className="profile-large-avatar">
+          {(profile?.username ?? '演示账户').slice(0, 1)}
+          <small>LV{identity.level}</small>
+        </span>
         <div>
-          <span>演示账户</span>
-          <h2>尚未完成投资画像</h2>
-          <p>
-            注册和画像分开进行；建立画像后，建议仓位会根据期限、流动性和最大可承受回撤调整。
-          </p>
+          <span>{profile?.username ?? '演示账户'}</span>
+          <h2>
+            {identity.name} · {profile?.riskLabel ?? '待建立风险画像'}
+          </h2>
+          <p>平台身份代表功能使用进度；风险画像用于调整首页建议和体检上限。</p>
         </div>
-        <Link className="primary-button" href="/">
-          返回首页建立画像
-        </Link>
+        <OnboardingDemo
+          profileOnly
+          editProfile={profile}
+          onComplete={() => {}}
+        />
+        {error && <p>{error}</p>}
+      </section>
+      <section className="profile-visual-grid">
+        <article className="panel identity-level-card">
+          <div className="identity-title">
+            <div>
+              <span>平台身份</span>
+              <h2>
+                LV{identity.level} · {identity.name}
+              </h2>
+            </div>
+            <strong>{identity.progress}%</strong>
+          </div>
+          <progress
+            className="identity-progress"
+            aria-label={`平台身份进度 ${identity.progress}%`}
+            max={100}
+            value={identity.progress}
+          />
+          <p>下一步：{identity.next}</p>
+          <div className="identity-milestones">
+            {identity.milestones.map((item, index) => (
+              <span className={item.done ? 'done' : ''} key={item.label}>
+                <i>{item.done ? '✓' : index + 1}</i>
+                {item.label}
+              </span>
+            ))}
+          </div>
+        </article>
+        <article className="panel risk-profile-card">
+          <div className="identity-title">
+            <div>
+              <span>风险画像</span>
+              <h2>{profile?.riskLabel ?? '默认演示画像'}</h2>
+            </div>
+            <strong>{riskPosition}%</strong>
+          </div>
+          <meter
+            className="risk-spectrum"
+            aria-label={`风险资产参考上限 ${riskPosition}%`}
+            min={15}
+            max={85}
+            low={35}
+            high={65}
+            optimum={45}
+            value={riskPosition}
+          />
+          <div className="risk-spectrum-labels">
+            <span>谨慎</span>
+            <span>稳健</span>
+            <span>成长</span>
+          </div>
+          <p>
+            {profile
+              ? `${profile.maxDrawdown} 最大回撤承受 · ${profile.horizon}投资期限 · ${profile.liquidity}流动性`
+              : '完成画像后，系统会按规则自动定位。'}
+          </p>
+          <details>
+            <summary>查看画像计算规则</summary>
+            <p>
+              最大回撤决定基础仓位；期限超过 5 年增加 10%，不足 1 年减少
+              10%；高流动性需求再减少 10%，最终限制在
+              15%–85%。修改资料并保存后会立即重算。
+            </p>
+          </details>
+        </article>
       </section>
       <section className="feature-profile-grid">
         <article className="panel">
           <UserRound size={18} />
           <span>账户状态</span>
-          <b>演示模式</b>
-          <small>手机号与验证码仅用于演示注册流程</small>
+          <b>本机演示账户</b>
+          <small>{profile?.phoneMasked || '尚未绑定演示手机号'}</small>
         </article>
         <article className="panel">
           <Target size={18} />
           <span>当前建议依据</span>
-          <b>示例稳健配置</b>
-          <small>未建立画像时使用 65% 风险资产参考上限</small>
+          <b>{profile?.riskLabel ?? '示例稳健配置'}</b>
+          <small>
+            风险资产演示上限 {profile?.recommendedAllocation ?? 65}% ·{' '}
+            {profile ? '根据画像计算' : '未建立画像，使用默认值'}
+          </small>
         </article>
         <article className="panel">
           <Wallet size={18} />
@@ -731,11 +830,31 @@ function ProfileView({ account }: { account: Account }) {
           </small>
         </article>
       </section>
+      {profile && (
+        <section className="feature-profile-grid">
+          {Object.entries({
+            年龄范围: profile.ageRange,
+            投资经验: profile.experience,
+            投资目标: profile.goal,
+            投资期限: profile.horizon,
+            可投资资产: profile.investableAssets,
+            每月投入: profile.monthlyContribution,
+            可承受回撤: profile.maxDrawdown,
+            流动性需求: profile.liquidity,
+          }).map(([label, value]) => (
+            <article className="panel" key={label}>
+              <span>{label}</span>
+              <b>{value}</b>
+            </article>
+          ))}
+        </section>
+      )}
       <aside className="feature-profile-note">
         <Sparkles size={17} />
         <p>
-          <b>画像会影响什么？</b>建议仓位、风险提醒和 Agent
-          的解释角度会变化；真实持仓不会自动改变。
+          <b>画像会影响什么？</b>
+          首页建议仓位和体检上限会变化；已保存方案与持仓不会自动改变。画像保存在当前浏览器，不会随
+          GitHub 同步。
         </p>
       </aside>
     </div>

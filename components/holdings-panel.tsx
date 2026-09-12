@@ -170,7 +170,8 @@ export function HoldingsPanel({
             <button
               className="holding"
               aria-label={`查看${h.name}持仓详情`}
-              onClick={() => onSelect(i)}
+              aria-expanded={selected === i}
+              onClick={() => onSelect(selected === i ? -1 : i)}
             >
               <div className="holding-name">
                 <i style={{ background: h.color }} />
@@ -178,13 +179,17 @@ export function HoldingsPanel({
                 <span>{h.allocation.toFixed(1)}%</span>
               </div>
               <div className="holding-data">
-                <small>
-                  {h.code} · {h.quantity.toLocaleString()} 股/份
-                </small>
+                {selected === i && (
+                  <small>
+                    {h.code} · {h.quantity.toLocaleString()} 股/份
+                  </small>
+                )}
                 <span>市值 ¥{money(h.value, false)}</span>
-                <span>
-                  参考现价 {h.price} · 成本 {h.cost}
-                </span>
+                {selected === i && (
+                  <span>
+                    参考现价 {h.price} · 成本 {h.cost}
+                  </span>
+                )}
                 <em className={h.pnl >= 0 ? 'up' : 'down'}>
                   浮盈亏 {h.pnl >= 0 ? '+' : ''}
                   {money(h.pnl)}

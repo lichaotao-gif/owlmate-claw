@@ -9,7 +9,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  CircleGauge,
   CircleHelp,
   Expand,
   Layers3,
@@ -27,13 +26,12 @@ import {
 } from 'lucide-react';
 import { OwlLogo as Glasses } from '@/components/owl-logo';
 import { StrategyCenter } from '@/components/strategy-center';
+import { useInvestorProfile } from '@/lib/profile-store';
+import { PortfolioHealth } from '@/components/portfolio-health';
 import { AdviceSummary } from '@/components/advice-view';
 import { StrategyWorkbench } from '@/components/strategy-workbench';
 import { PlanLibrary, type PlanLibraryHandle } from '@/components/plan-library';
-import {
-  OnboardingDemo,
-  type InvestorProfile,
-} from '@/components/onboarding-demo';
+import { OnboardingDemo } from '@/components/onboarding-demo';
 import { HoldingsPanel } from '@/components/holdings-panel';
 import { ValuationZonePanel } from '@/components/valuation-zone-panel';
 import {
@@ -494,16 +492,19 @@ export default function Home() {
     setPending(false);
     setMessages([]);
     setTriggered(false);
+    setHealthSource('');
     setAccount(next);
     setSelected(-1);
     try {
       localStorage.setItem('owlmate-account-v1', JSON.stringify(next));
+      window.dispatchEvent(new Event('owlmate-data-change'));
       trackTotal(summarize(next).total);
       setNotice('账户已保存在本机，资产与模拟已更新。现金未自动变动。');
     } catch {
       setNotice('当前页面已更新，但浏览器存储不可用，刷新会丢失修改。');
     }
   }
+  const [healthSource, setHealthSource] = useState('');
   const [pressure, setPressure] = useState(false);
   const [selected, setSelected] = useState(-1),
     [allocation, setAllocation] = useState(65),
@@ -523,8 +524,8 @@ export default function Home() {
     [risk, setRisk] = useState('稳健增值'),
     [months, setMonths] = useState('1–3 年'),
     [depositDraft, setDepositDraft] = useState('50000'),
-    [userName, setUserName] = useState('演示账户'),
-    [profile, setProfile] = useState<InvestorProfile | null>(null);
+    [userName, setUserName] = useState('演示账户');
+  const { profile } = useInvestorProfile();
   const adviceTarget = Math.min(
     currentAllocation,
     profile?.recommendedAllocation ?? 65,
@@ -668,7 +669,6 @@ export default function Home() {
                 setNotice(`注册成功，欢迎你，${account.username}。`);
               }}
               onComplete={(next) => {
-                setProfile(next);
                 setUserName(next.username);
                 setRisk(next.goal);
                 setMonths(next.horizon);
@@ -697,7 +697,7 @@ export default function Home() {
               <span className="small-avatar">
                 {userName.slice(0, 1).toUpperCase()}
               </span>
-              <span>{userName}</span>
+              <span>{profile?.username ?? userName}</span>
               <ChevronDown size={14} />
             </button>
           </div>
@@ -828,6 +828,25 @@ export default function Home() {
                 </div>
               </div>
             </section>
+            <PortfolioHealth
+              account={account}
+              limit={profile?.recommendedAllocation ?? 65}
+              hasProfile={!!profile}
+              onSimulate={(target, reason) => {
+                setSelected(-1);
+                setAllocation(target);
+                setScenario('base');
+                setDays(20);
+                setDeposit(0);
+                setNotice(
+                  `已载入体检方案：${target.toFixed(1)}% 仓位，可对比并保存。`,
+                );
+                setHealthSource(reason);
+                document
+                  .getElementById('simulation')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            />
             <div className="analysis-grid">
               <HoldingsPanel
                 account={account}
@@ -901,6 +920,12 @@ export default function Home() {
                   account={simulationAccount}
                   focusName={focusName}
                 />
+                {healthSource && (
+                  <output className="health-source">
+                    来源：{healthSource} 已载入 20
+                    日基准情景，新增资金归零；可继续调整并保存方案。
+                  </output>
+                )}
                 <AdviceSummary
                   current={currentAllocation}
                   target={adviceTarget}
@@ -1014,7 +1039,7 @@ export default function Home() {
               onSave={save}
             />
             <StrategistSpotlight />
-            <section className="lower-grid">
+            <section className="lower-grid health-merged-events">
               <div className="panel events-panel" id="events">
                 <div className="panel-heading">
                   <h2>
@@ -1046,101 +1071,6 @@ export default function Home() {
                     <ChevronRight size={14} />
                   </button>
                 ))}
-              </div>
-              <div className="panel risk-panel">
-                <div className="panel-heading">
-                  <h2>
-                    <ShieldCheck size={16} />
-                    组合风险透视
-                  </h2>
-                  <span className="amber-tag">值得关注</span>
-                </div>
-                <div className="risk-main">
-                  <div className="risk-dial">
-                    <svg
-                      viewBox="0 0 160 100"
-                      aria-label={`最大持仓占比${largestPercent.toFixed(1)}%`}
-                    >
-                      <path
-                        d="M20 85 A60 60 0 0 1 140 85"
-                        fill="none"
-                        stroke="#292a39"
-                        strokeWidth="9"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M20 85 A60 60 0 0 1 140 85"
-                        pathLength="100"
-                        strokeDasharray={`${largestPercent} 100`}
-                        fill="none"
-                        stroke="#e2b86e"
-                        strokeWidth="9"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div>
-                      <strong>
-                        {largestPercent.toFixed(1)}
-                        <span>%</span>
-                      </strong>
-                      <small>最大单一持仓</small>
-                    </div>
-                  </div>
-                  <div className="risk-explanation">
-                    <div className="risk-source">
-                      <span>
-                        <Target size={15} />
-                      </span>
-                      <div>
-                        <small>主要风险来源</small>
-                        <b>{summary.largest?.name ?? '暂无持仓'}</b>
-                      </div>
-                    </div>
-                    <p>
-                      {concentration}
-                      {summary.largest && largestPercent >= 30
-                        ? ' 单一资产波动对组合影响较明显。'
-                        : summary.largest
-                          ? ' 当前集中度处于可观察范围。'
-                          : ''}
-                    </p>
-                  </div>
-                </div>
-                <div className="risk-factors" aria-label="组合风险指标">
-                  <div>
-                    <span className="risk-factor-icon risk-factor-allocation">
-                      <CircleGauge size={15} />
-                    </span>
-                    <p>
-                      <small>风险资产</small>
-                      <b>{currentAllocation.toFixed(1)}%</b>
-                    </p>
-                  </div>
-                  <div>
-                    <span className="risk-factor-icon risk-factor-assets">
-                      <Layers3 size={15} />
-                    </span>
-                    <p>
-                      <small>持仓分散</small>
-                      <b>{assets.length} 类</b>
-                    </p>
-                  </div>
-                  <div>
-                    <span className="risk-factor-icon risk-factor-cash">
-                      <Wallet size={15} />
-                    </span>
-                    <p>
-                      <small>现金缓冲</small>
-                      <b>{(100 - currentAllocation).toFixed(1)}%</b>
-                    </p>
-                  </div>
-                </div>
-                <button
-                  className="text-button"
-                  onClick={() => ask('为什么建议降低仓位？')}
-                >
-                  了解对我的影响 <ArrowUpRight size={14} />
-                </button>
               </div>
             </section>
             <footer className="page-footer">

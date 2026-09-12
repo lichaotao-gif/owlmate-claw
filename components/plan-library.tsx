@@ -83,6 +83,7 @@ export const PlanLibrary = forwardRef<
     setPlans(ps);
     try {
       localStorage.setItem('owlmate-plans-v2', JSON.stringify(ps));
+      window.dispatchEvent(new Event('owlmate-data-change'));
     } catch {
       notify('当前页面已更新，但本机存储失败，刷新会丢失本次修改。');
     }
