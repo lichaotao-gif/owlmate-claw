@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo } from 'react';
+import { addBusinessDays, format, parseISO } from 'date-fns';
 import {
   Activity,
   ArrowRight,
@@ -98,7 +99,7 @@ function buildEvents(summary: ReturnType<typeof summarize>): EventItem[] {
       time: '14:28',
       asset: largest.name,
       icon: Activity,
-      desc: `演示事件：假设${largest.name}所在板块波动上升。它目前是你最大的单一敞口，市值 ¥${money(largest.value, false)}，占账户 ${largest.allocation.toFixed(1)}%。此消息为虚构演示内容，请结合自己的持仓判断关联性。`,
+      desc: `情景事件：假设${largest.name}所在板块波动上升。它目前是你最大的单一敞口，市值 ¥${money(largest.value, false)}，占账户 ${largest.allocation.toFixed(1)}%。请结合自己的持仓判断关联性。`,
       question: '分析我的持仓风险',
     });
   const mover = assets
@@ -114,7 +115,7 @@ function buildEvents(summary: ReturnType<typeof summarize>): EventItem[] {
       time: '13:45',
       asset: mover.name,
       icon: TrendingUp,
-      desc: `演示事件：假设${mover.name}走势延续。它占账户 ${mover.allocation.toFixed(1)}%，当前浮动盈亏 ${mover.pnl >= 0 ? '+' : ''}${money(mover.pnl, false)}。不同资产并非始终反向波动，建议比较上涨、震荡、下跌三种情景。此消息为虚构演示内容。`,
+      desc: `情景事件：假设${mover.name}走势延续。它占账户 ${mover.allocation.toFixed(1)}%，当前浮动盈亏 ${mover.pnl >= 0 ? '+' : ''}${money(mover.pnl, false)}。不同资产并非始终反向波动，建议比较上涨、震荡、下跌三种情景。`,
       question: '如果市场下跌呢？',
     });
   list.push(
@@ -125,7 +126,7 @@ function buildEvents(summary: ReturnType<typeof summarize>): EventItem[] {
           time: '09:30',
           asset: '我的组合',
           icon: Target,
-          desc: `演示计划：复核投资期限、资金用途、持仓集中度与模拟假设。当前风险资产仓位 ${riskAllocation.toFixed(1)}%，现金 ${(100 - riskAllocation).toFixed(1)}%。仅保存方案不会修改实际持仓。`,
+          desc: `定期复核投资期限、资金用途、持仓集中度与模拟假设。当前风险资产仓位 ${riskAllocation.toFixed(1)}%，现金 ${(100 - riskAllocation).toFixed(1)}%。仅保存方案不会修改实际持仓。`,
           question: '为什么建议降低仓位？',
         }
       : {
@@ -134,7 +135,7 @@ function buildEvents(summary: ReturnType<typeof summarize>): EventItem[] {
           time: '09:30',
           asset: '我的组合',
           icon: Target,
-          desc: '演示计划：事件雷达按你录入的持仓生成。请先在「我的持仓」添加资产或维护现金，之后这里会显示与实际敞口相关的演示事件。',
+          desc: '事件雷达按你录入的持仓生成。请先在「我的持仓」添加资产或维护现金，之后这里会显示与实际敞口相关的风险事件。',
           question: '分析我的持仓风险',
         },
   );
@@ -150,6 +151,8 @@ function Projection({
   account,
   focusName,
   historySeries,
+  compareScenarios = false,
+  showHistoryReplay = false,
   deposit = 0,
   large = false,
 }: {
@@ -160,6 +163,8 @@ function Projection({
   account: { total: number; riskAllocation: number };
   focusName: string;
   historySeries: HistoricalPoint[];
+  compareScenarios?: boolean;
+  showHistoryReplay?: boolean;
   deposit?: number;
   large?: boolean;
 }) {
@@ -172,7 +177,22 @@ function Projection({
         .map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`)
         .join(' ');
     const amp = (allocation / 80) * Math.sqrt(days / 20);
-    const historyDeviation = historySeries.reduce(
+    const latestHistoryValue = historySeries.at(-1)?.value ?? account.total;
+    const currentCash =
+      account.total * (1 - Math.min(100, account.riskAllocation) / 100);
+    const latestRiskValue = Math.max(1, latestHistoryValue - currentCash);
+    const replayValues = historySeries.map((point) => ({
+      ...point,
+      normalized:
+        ((100 - allocation) / 100 +
+          (allocation / 100) *
+            ((point.value - currentCash) / latestRiskValue)) *
+        100,
+    }));
+    const visibleHistory = showHistoryReplay
+      ? [...historySeries, ...replayValues]
+      : historySeries;
+    const historyDeviation = visibleHistory.reduce(
       (max, point) => Math.max(max, Math.abs(point.normalized - 100)),
       0,
     );
@@ -195,6 +215,10 @@ function Projection({
       : [{ date: marketSnapshotDate, value: account.total, normalized: 100 }];
     const hist = historyValues.map((point, i) => [
       historyValues.length > 1 ? (i / (historyValues.length - 1)) * 400 : 400,
+      164 - ((point.normalized - 100) * 128) / bound,
+    ]);
+    const replay = replayValues.map((point, i) => [
+      replayValues.length > 1 ? (i / (replayValues.length - 1)) * 400 : 400,
       164 - ((point.normalized - 100) * 128) / bound,
     ]);
     const futureY = (i: number, sc: Scenario) =>
@@ -221,8 +245,13 @@ function Projection({
     return {
       ticks: [100 + bound, 100 + bound / 2, 100, 100 - bound / 2, 100 - bound],
       history: path(hist),
+      replay: path(replay),
+      replayValues,
       fill: path(hist) + ' L400,304 L0,304 Z',
       future: futures.map(path),
+      futurePercent: futures.map((points) =>
+        points.map(([, y]) => ((164 - y) * bound) / 128),
+      ),
       endpoints: futures.map((points) => points[points.length - 1][1]),
       band:
         path(futures[2]) +
@@ -250,7 +279,15 @@ function Projection({
         marketSnapshotDate,
       lastDate: historyValues.at(-1)?.date ?? marketSnapshotDate,
     };
-  }, [allocation, days, seed, deposit, account, historySeries]);
+  }, [
+    allocation,
+    days,
+    seed,
+    deposit,
+    account,
+    historySeries,
+    showHistoryReplay,
+  ]);
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart) return;
@@ -276,6 +313,42 @@ function Projection({
     hover !== null && hover <= 400 && historySeries.length
       ? historySeries[Math.round((hover / 400) * (historySeries.length - 1))]
       : null;
+  const hoveredReplay =
+    hover !== null && hover <= 400 && paths.replayValues.length
+      ? paths.replayValues[
+          Math.round((hover / 400) * (paths.replayValues.length - 1))
+        ]
+      : null;
+  const forecastDay =
+    hover !== null && hover > 400
+      ? Math.max(1, Math.round(((hover - 400) / 290) * days))
+      : null;
+  const hoveredForecast =
+    forecastDay === null
+      ? null
+      : forecast(allocation, forecastDay, scenario, deposit, account);
+  const forecastPointIndex =
+    hover !== null && hover > 400
+      ? Math.max(0, Math.min(40, Math.round(((hover - 400) / 290) * 40)))
+      : null;
+  const forecastPercent =
+    forecastPointIndex === null
+      ? null
+      : (paths.futurePercent[active]?.[forecastPointIndex] ??
+        hoveredForecast?.percent ??
+        null);
+  const forecastEnd =
+    hoveredForecast && forecastPercent !== null
+      ? hoveredForecast.total * (1 + forecastPercent / 100)
+      : null;
+  const forecastDate =
+    forecastDay === null
+      ? ''
+      : format(
+          addBusinessDays(parseISO(marketSnapshotDate), forecastDay),
+          'yyyy.MM.dd',
+        );
+  const tooltipX = hover === null ? 0 : Math.min(hover + 10, 466);
   return (
     <div className={'projection ' + (large ? 'large' : '')}>
       <div className="chart-top-labels">
@@ -285,13 +358,15 @@ function Projection({
         </span>
         <span className="future-label">
           <Sparkles size={12} />
-          组合未来 {days} 日 · 假设推演
+          {compareScenarios
+            ? `组合未来 ${days} 日 · 情景对比`
+            : `当前预测 · ${scenarioLabels[scenario]}`}
         </span>
       </div>
       <svg
         ref={chartRef}
         viewBox="0 0 780 345"
-        aria-label={`${focusName}截至${marketSnapshotDate}的历史收盘走势，以及未来${days}日三种假设情景。未来部分非行情预测。`}
+        aria-label={`${focusName}截至${marketSnapshotDate}的历史收盘走势，以及未来${days}日${compareScenarios ? '三种假设情景' : '当前预测与上下范围'}。未来部分为预测推演。`}
       >
         <defs>
           <linearGradient
@@ -369,6 +444,16 @@ function Projection({
             strokeWidth="2.7"
             fill="none"
           />
+          {showHistoryReplay && paths.replay && (
+            <path
+              d={paths.replay}
+              stroke="#f3a76f"
+              strokeWidth="2.2"
+              strokeDasharray="5 4"
+              fill="none"
+              opacity="0.95"
+            />
+          )}
           <path
             d={paths.band}
             fill={`url(#${large ? 'forecastFillL' : 'forecastFill'})`}
@@ -379,9 +464,21 @@ function Projection({
               d={d}
               fill="none"
               stroke={['#69aaf5', '#bd91ff', '#59d2ad'][i]}
-              strokeWidth={active === i ? 2.8 : 1.5}
-              strokeDasharray={active === i ? '6 4' : '3 5'}
-              opacity={active === i ? 1 : 0.68}
+              strokeWidth={
+                compareScenarios ? (active === i ? 2.8 : 1.5) : i === 1 ? 3 : 1
+              }
+              strokeDasharray={
+                compareScenarios
+                  ? active === i
+                    ? '6 4'
+                    : '3 5'
+                  : i === 1
+                    ? undefined
+                    : '4 7'
+              }
+              opacity={
+                compareScenarios ? (active === i ? 1 : 0.68) : i === 1 ? 1 : 0.3
+              }
             />
           ))}
           {paths.endpoints.map((y, i) => (
@@ -389,7 +486,9 @@ function Projection({
               key={i}
               cx="690"
               cy={y}
-              r={active === i ? 4.5 : 3}
+              r={
+                compareScenarios ? (active === i ? 4.5 : 3) : i === 1 ? 4.5 : 0
+              }
               fill={['#69aaf5', '#bd91ff', '#59d2ad'][i]}
               stroke="#12141d"
               strokeWidth="2"
@@ -438,49 +537,115 @@ function Projection({
               opacity=".4"
             />
             <rect
-              x={Math.min(hover + 10, 515)}
-              y="30"
-              width="167"
-              height="36"
+              x={tooltipX}
+              y="27"
+              width="224"
+              height={showHistoryReplay && hoveredHistorical ? 76 : 58}
               rx="6"
               fill="#252234"
               stroke="#504568"
             />
-            <text
-              x={Math.min(hover + 22, 527)}
-              y="52"
-              fontSize="12"
-              fill="#e1dbea"
-            >
-              {hoveredHistorical
-                ? `${formatMarketDate(hoveredHistorical.date)} · ${hoveredHistorical.normalized.toFixed(2)}`
-                : `${scenarioLabels[scenario]} · 非概率预测`}
+            <text x={tooltipX + 12} y="49" fontSize="12" fill="#e1dbea">
+              <tspan x={tooltipX + 12} fontWeight="600">
+                {hoveredHistorical
+                  ? `${showHistoryReplay ? '历史回放' : '历史'} ${hoveredHistorical.date.replaceAll('-', '.')}${showHistoryReplay ? '' : ` · 净值 ${hoveredHistorical.normalized.toFixed(2)}`}`
+                  : `预测 ${forecastDate} · ${scenarioLabels[scenario]}`}
+              </tspan>
+              <tspan x={tooltipX + 12} dy="19" fill="#aeb3c4">
+                {hoveredHistorical
+                  ? showHistoryReplay
+                    ? `当前持仓净值 ${hoveredHistorical.normalized.toFixed(2)}`
+                    : selected < 0
+                      ? `组合资产 ¥${money(hoveredHistorical.value, false)}`
+                      : `当日收盘 ¥${hoveredHistorical.value.toFixed(3)}`
+                  : forecastPercent !== null && forecastEnd !== null
+                    ? `预测变化 ${forecastPercent >= 0 ? '+' : ''}${forecastPercent.toFixed(2)}% · ¥${money(forecastEnd, false)}`
+                    : '预测结果基于当前情景假设'}
+              </tspan>
+              {showHistoryReplay && hoveredReplay && (
+                <tspan x={tooltipX + 12} dy="18" fill="#f3b183">
+                  {allocation}% 仓位回放净值{' '}
+                  {hoveredReplay.normalized.toFixed(2)}
+                </tspan>
+              )}
             </text>
           </g>
         )}
       </svg>
       <div className="chart-legend">
-        <span>
-          <i
-            style={{ background: '#59d2ad', boxShadow: '0 0 10px #59d2ad66' }}
-          />
-          上涨情景
-        </span>
-        <span>
-          <i
-            style={{ background: '#bd91ff', boxShadow: '0 0 10px #bd91ff66' }}
-          />
-          震荡情景
-        </span>
-        <span>
-          <i
-            style={{ background: '#69aaf5', boxShadow: '0 0 10px #69aaf566' }}
-          />
-          下跌情景
-        </span>
+        {showHistoryReplay && (
+          <>
+            <span>
+              <i
+                style={{
+                  background: '#61c9ee',
+                  boxShadow: '0 0 10px #61c9ee55',
+                }}
+              />
+              当前持仓历史
+            </span>
+            <span>
+              <i
+                style={{
+                  background: '#f3a76f',
+                  boxShadow: '0 0 10px #f3a76f55',
+                }}
+              />
+              {allocation}% 仓位历史回放
+            </span>
+          </>
+        )}
+        {compareScenarios ? (
+          <>
+            <span>
+              <i
+                style={{
+                  background: '#59d2ad',
+                  boxShadow: '0 0 10px #59d2ad66',
+                }}
+              />
+              上涨情景
+            </span>
+            <span>
+              <i
+                style={{
+                  background: '#bd91ff',
+                  boxShadow: '0 0 10px #bd91ff66',
+                }}
+              />
+              震荡情景
+            </span>
+            <span>
+              <i
+                style={{
+                  background: '#69aaf5',
+                  boxShadow: '0 0 10px #69aaf566',
+                }}
+              />
+              下跌情景
+            </span>
+          </>
+        ) : (
+          <>
+            <span>
+              <i
+                style={{
+                  background: '#bd91ff',
+                  boxShadow: '0 0 10px #bd91ff66',
+                }}
+              />
+              当前预测
+            </span>
+            <span>
+              <i className="forecast-range-dot" />
+              预测范围
+            </span>
+          </>
+        )}
         <small>
-          历史收盘数据截至 {marketSnapshotDate.replaceAll('-', '.')} ·
-          未来为情景推演
+          {showHistoryReplay
+            ? `按当前资产篮子回放 ${allocation}% 仓位 · 现金收益按 0 计算`
+            : `历史收盘数据截至 ${marketSnapshotDate.replaceAll('-', '.')} · 未来为情景推演`}
         </small>
       </div>
     </div>
@@ -507,13 +672,13 @@ export default function Home() {
   const events = buildEvents(summary);
   if (strategySignal)
     events.unshift({
-      title: '回撤规则已触发 · 手动演示',
+      title: '回撤规则已触发 · 手动测算',
       type: '策略风控',
-      time: '本次演示',
+      time: '本次测算',
       asset: '模拟对象',
       icon: ShieldCheck,
       desc: strategySignal,
-      question: '解释回撤规则的演示结果',
+      question: '解释回撤规则的测算结果',
     });
   function trackTotal(total: number) {
     const raw = localStorage.getItem('owlmate-history-v1');
@@ -540,6 +705,7 @@ export default function Home() {
   }
   const [healthSource, setHealthSource] = useState('');
   const [pressure, setPressure] = useState(false);
+  const [historyReplay, setHistoryReplay] = useState(false);
   const [selected, setSelected] = useState(-1),
     [allocation, setAllocation] = useState(65),
     [days, setDays] = useState(20),
@@ -558,7 +724,7 @@ export default function Home() {
     [risk, setRisk] = useState('稳健增值'),
     [months, setMonths] = useState('1–3 年'),
     [depositDraft, setDepositDraft] = useState('50000'),
-    [userName, setUserName] = useState('演示账户');
+    [userName, setUserName] = useState('访客账户');
   const { profile } = useInvestorProfile();
   const adviceTarget = Math.min(
     currentAllocation,
@@ -581,7 +747,7 @@ export default function Home() {
         }
         setAccount(stored);
       } catch {
-        setNotice('无法读取本机账户，暂用示例数据。原存储未覆盖。');
+        setNotice('无法读取本机账户，暂用初始数据。原存储未覆盖。');
       }
       try {
         trackTotal(summarize(stored).total);
@@ -668,7 +834,7 @@ export default function Home() {
         answer = `已把组合的风险资产模拟仓位调整到 ${n}%，剩余 ${100 - n}% 保留现金。中央图表与情景结果已同步更新。这是组合级试算，尚未保存，也未修改真实持仓。`;
       } else
         answer =
-          '仓位需要在 0% 到 100% 之间。演示版不使用杠杆，请输入范围内的比例。';
+          '仓位需要在 0% 到 100% 之间。当前账户不使用杠杆，请输入范围内的比例。';
     } else if (/下跌|跌了|压力/.test(question)) {
       setPressure(true);
       setScenario('bear');
@@ -677,16 +843,16 @@ export default function Home() {
       answer =
         '你可以点击建议卡的「保存方案」。每次保存新增一套待模拟方案，可在「我的模拟方案」中开始独立模拟。原始持仓不变。';
     } else if (/新闻|事件|发生|科技/.test(question)) {
-      answer = `${concentration} 当前事件为虚构演示，并非实时资讯。请结合现有持仓判断关联性，再比较情景。`;
+      answer = `${concentration} 当前事件是基于持仓生成的情景信息，并非实时资讯。请结合现有持仓判断关联性，再比较情景。`;
     } else if (/买|资金|万元|万块/.test(question)) {
       setDialog('plan');
       answer =
         '已打开新资金试算。填写新增金额后，会以「当前资产＋新增资金」为基数计算目标配置。这里不直接修改账户余额，也不提供实时选股。';
     } else if (/为什么|风险|建议|持仓|分析/.test(question)) {
-      answer = `${focusName}的分析基于当前录入账户。${concentration} 当前风险资产仓位为 ${currentAllocation.toFixed(1)}%，资产基数 ¥${money(summary.total, false)}。模拟仓位 ${allocation}% 是供比较的演示配置，不是凯利计算或真实投资建议。你可以调整仓位，并比较上涨、震荡、下跌情景，判断现金和风险的变化。`;
+      answer = `${focusName}的分析基于当前录入账户。${concentration} 当前风险资产仓位为 ${currentAllocation.toFixed(1)}%，资产基数 ¥${money(summary.total, false)}。模拟仓位 ${allocation}% 是供比较的参考配置，不是凯利计算。你可以调整仓位，并比较上涨、震荡、下跌情景，判断现金和风险的变化。`;
     } else
       answer =
-        '我目前是交互演示助手，支持解释示例持仓、切换下跌情景、按百分比调整组合仓位，以及打开新增资金试算。你可以试试「把组合仓位调到 60%」。开放式研究与实时行情将在后续接入。';
+        '我可以解释当前持仓、切换下跌情景、按百分比调整组合仓位，以及打开新增资金试算。你可以试试「把组合仓位调到 60%」。开放式研究与实时行情将在后续接入。';
     timer.current = setTimeout(() => {
       setMessages((m) => [...m, { role: 'assistant', text: answer }]);
       setPending(false);
@@ -705,7 +871,7 @@ export default function Home() {
           <div className="header-right">
             <span className="demo-badge">
               <i />
-              交互演示
+              个人投资工作台
             </span>
             <span className="snapshot">
               {formatMarketDate(marketSnapshotDate)} · 收盘数据
@@ -721,14 +887,14 @@ export default function Home() {
                 setMonths(next.horizon);
                 setAllocation(next.recommendedAllocation);
                 setNotice(
-                  `画像已建立：${next.riskLabel}，已载入 ${next.recommendedAllocation}% 演示仓位。`,
+                  `画像已建立：${next.riskLabel}，已载入 ${next.recommendedAllocation}% 参考仓位。`,
                 );
               }}
             />
             <StrategyCenter
               onSignal={(text) => {
                 setStrategySignal(text);
-                setNotice('演示提醒已加入事件雷达');
+                setNotice('风险提醒已加入事件雷达');
                 setMessages((m) => [...m, { role: 'assistant', text }]);
               }}
             />
@@ -907,7 +1073,7 @@ export default function Home() {
                   <div>
                     <h2>
                       历史走势与未来推演{' '}
-                      <span className="purple-tag">DEMO</span>
+                      <span className="purple-tag">SCENARIO</span>
                     </h2>
                     <p>
                       历史行情截至 {marketSnapshotDate.replaceAll('-', '.')} ·
@@ -923,6 +1089,16 @@ export default function Home() {
                   </button>
                 </div>
                 <div className="chart-toolbar">
+                  {selected < 0 && (
+                    <button
+                      className="text-link history-replay-toggle"
+                      aria-pressed={historyReplay}
+                      onClick={() => setHistoryReplay((value) => !value)}
+                    >
+                      <RotateCcw size={14} />
+                      {historyReplay ? '隐藏历史回放' : '历史方案对比'}
+                    </button>
+                  )}
                   <button
                     className="text-link"
                     aria-expanded={pressure}
@@ -931,7 +1107,7 @@ export default function Home() {
                       setScenario('base');
                     }}
                   >
-                    {pressure ? '收起情景选项' : '情景假设 · 压力测试'}
+                    {pressure ? '收起其他情景' : '查看其他情景 · 压力测试'}
                     <ChevronDown size={14} />
                   </button>
                   {pressure && (
@@ -968,6 +1144,8 @@ export default function Home() {
                   account={simulationAccount}
                   focusName={focusName}
                   historySeries={historySeries}
+                  compareScenarios={pressure}
+                  showHistoryReplay={historyReplay && selected < 0}
                 />
                 {healthSource && (
                   <output className="health-source">
@@ -1095,7 +1273,7 @@ export default function Home() {
                     <Radio size={17} />
                     事件雷达 <span className="count-pill">{events.length}</span>
                   </h2>
-                  <span className="muted-small">与你的持仓有关 · 演示</span>
+                  <span className="muted-small">与你的持仓有关</span>
                 </div>
                 {events.map((e, i) => (
                   <button
@@ -1156,7 +1334,7 @@ export default function Home() {
               <div className="agent-context">
                 <Layers3 size={13} />
                 正在关注：{focusName}
-                <span>演示模式</span>
+                <span>组合分析</span>
               </div>
               <div className="agent-scroll">
                 <div className="agent-intro">
@@ -1181,7 +1359,7 @@ export default function Home() {
                   </span>
                   <p>
                     {triggered
-                      ? '已触发演示事件，请结合当前持仓重新评估。'
+                      ? '已触发风险事件，请结合当前持仓重新评估。'
                       : concentration}
                   </p>
                   <div className="source-chips">
@@ -1229,7 +1407,7 @@ export default function Home() {
                     </b>
                   </div>
                   <p className="recommend-note">
-                    演示配置，非凯利计算。调整后各风险资产按原比例分配。
+                    参考配置，非凯利计算。调整后各风险资产按原比例分配。
                   </p>
                   <button className="save-button" onClick={save}>
                     <Bookmark size={15} />
@@ -1252,7 +1430,7 @@ export default function Home() {
                       {m.role === 'assistant' && (
                         <span className="message-author">
                           <Glasses size={15} />
-                          OwlMate · 演示回复
+                          OwlMate · 组合分析
                         </span>
                       )}
                       <p>{m.text}</p>
@@ -1309,7 +1487,7 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                <p>演示回复与假设推演，不构成实际投资建议</p>
+                <p>基于当前数据与假设推演，结果仅供决策参考</p>
               </form>
             </aside>
           ) : (
@@ -1355,7 +1533,7 @@ export default function Home() {
           <DialogDescription>
             {dialog === 'chart'
               ? '历史与未来均为示意，非真实行情或预测。'
-              : 'OwlMate 首页演示 · 所有资产、行情和事件均为示例'}
+              : 'OwlMate 投资驾驶舱 · 资产、行情与事件统一呈现'}
           </DialogDescription>
           {dialog === 'profile' && (
             <div className="dialog-body">
@@ -1369,7 +1547,7 @@ export default function Home() {
                   <div>
                     <span>画像类型</span>
                     <b>{profile.riskLabel}</b>
-                    <small>建议演示仓位 {profile.recommendedAllocation}%</small>
+                    <small>建议参考仓位 {profile.recommendedAllocation}%</small>
                   </div>
                   <div>
                     <span>投资经验</span>
@@ -1409,7 +1587,7 @@ export default function Home() {
                 当前风险资产仓位：{currentAllocation.toFixed(1)}%<br />
                 账户基数：¥{money(summary.total, false)}
                 <br />
-                画像只影响演示建议，不改变真实持仓。
+                画像用于调整建议口径，不会自动改变持仓。
               </div>
               <button
                 className="primary-button"
@@ -1422,10 +1600,10 @@ export default function Home() {
                         : 55,
                   );
                   setDialog(null);
-                  setNotice('画像偏好已更新，对应的演示仓位已载入试算。');
+                  setNotice('画像偏好已更新，对应的参考仓位已载入试算。');
                 }}
               >
-                应用到演示方案
+                应用到当前方案
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -1503,20 +1681,20 @@ export default function Home() {
               account={simulationAccount}
               focusName={focusName}
               historySeries={historySeries}
+              compareScenarios={pressure}
+              showHistoryReplay={historyReplay && selected < 0}
               large
             />
           )}
           {dialog === 'event' && (
             <div className="dialog-body">
-              <span className="purple-tag">
-                虚构演示事件 · {activeEvent.time}
-              </span>
+              <span className="purple-tag">情景事件 · {activeEvent.time}</span>
               <h3>{activeEvent.title}</h3>
               <p>{activeEvent.desc}</p>
               <div className="info-box">
                 关联资产：{activeEvent.asset}
                 <br />
-                证据状态：演示内容，未核实真实市场信息
+                证据状态：基于持仓生成，未接入实时市场信息
               </div>
               <button
                 className="primary-button"
@@ -1534,7 +1712,7 @@ export default function Home() {
           {dialog === 'method' && (
             <div className="dialog-body">
               <p>
-                行情快照、历史曲线和事件为虚构示例。资产与浮动盈亏按你维护的数量、成本和参考现价计算。未来图为归一化情景示意，阴影不是概率区间。
+                行情快照与历史曲线来自内置历史数据。资产与浮动盈亏按你维护的数量、成本和参考现价计算。未来图为归一化情景推演，阴影不是概率区间。
               </p>
               <div className="info-box">
                 20 日风险资产收益假设：上涨 +8%、震荡 +1.5%、下跌

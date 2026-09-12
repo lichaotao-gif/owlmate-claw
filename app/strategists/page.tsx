@@ -76,7 +76,7 @@ export default function StrategistsPage() {
               <i />
               模拟运行中
             </span>
-            <span className="snapshot">6 位 Agent · 示例数据</span>
+            <span className="snapshot">6 位 Agent · 策略组合</span>
             <Link href="/" className="back-cockpit">
               <ArrowLeft size={14} />
               返回驾驶舱
@@ -109,7 +109,7 @@ export default function StrategistsPage() {
             <div>
               <b>这是策略实验场，不是收益排行榜</b>
               <p>
-                所有身份、持仓与收益均为虚构模拟；每条曲线保留真实感的震荡和回撤，历史表现不代表未来结果。
+                策略身份、持仓与收益来自模型组合；每条曲线展示对应的震荡和回撤，历史表现不代表未来结果。
               </p>
             </div>
           </aside>
@@ -254,12 +254,12 @@ export default function StrategistsPage() {
               <div className="strategist-decision-log">
                 <span>Agent 最新决策</span>
                 <p>{selected.latestAction}</p>
-                <small>决策依据为演示规则，不代表实时市场判断。</small>
+                <small>决策依据来自规则模型，不代表实时市场判断。</small>
               </div>
               {comparing && (
                 <div className="strategist-compare">
                   <div>
-                    <span>我的示例组合</span>
+                    <span>我的对照组合</span>
                     <b>80% 投资仓位</b>
                     <small>最大回撤 0.0%</small>
                   </div>

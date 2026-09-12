@@ -117,7 +117,7 @@ export function HoldingsPanel({
       return;
     }
     if (!editing && account.holdings.length >= 100) {
-      setError('演示账户最多支持 100 只持仓。');
+      setError('当前账户最多支持 100 只持仓。');
       return;
     }
     onChange({

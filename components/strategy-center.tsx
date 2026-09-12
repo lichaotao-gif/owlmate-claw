@@ -14,7 +14,7 @@ const modules = [
     name: '最大回撤提醒',
     group: '风控工具',
     desc: '从净值高点计算回撤；达到阈值时生成复核提醒。',
-    needs: '手动输入假设回撤，可立即演示规则触发。',
+    needs: '手动输入假设回撤，可立即预览规则触发。',
     ready: true,
   },
   {
@@ -129,7 +129,7 @@ export function StrategyCenter({
       return;
     }
     const limit = scope === 'portfolio' ? config.portfolio : config.single;
-    const text = `${scope === 'portfolio' ? '组合' : '单股'}假设回撤 ${n}% ${n >= limit ? '达到' : '未达到'}阈值 ${limit}%。${n >= limit ? '风控优先：建议暂停新增风险暴露并复核配置。' : '本次不触发回撤警报。'}此为手动演示，不是当前账户实际回撤。`;
+    const text = `${scope === 'portfolio' ? '组合' : '单股'}假设回撤 ${n}% ${n >= limit ? '达到' : '未达到'}阈值 ${limit}%。${n >= limit ? '风控优先：建议暂停新增风险暴露并复核配置。' : '本次不触发回撤警报。'}这是手动压力测算，不是当前账户实际回撤。`;
     setResult(text);
     if (n >= limit) onSignal(text);
   }
@@ -144,7 +144,7 @@ export function StrategyCenter({
         <DialogContent className="owl-dialog strategy-center-dialog">
           <DialogTitle>策略中心</DialogTitle>
           <DialogDescription>
-            为整个组合添加分析与风控模块。演示版只保存设置与手动触发，不会定时推送或改变持仓。
+            为整个组合添加分析与风控模块。当前设置保存在本机，手动触发规则不会改变持仓。
           </DialogDescription>
           <div className="strategy-center-overview">
             <div>
@@ -168,7 +168,7 @@ export function StrategyCenter({
                   <div>
                     <span>{m.group}</span>
                     <small>
-                      {m.ready ? '可手动演示' : '待补充数据 / 规则'}
+                      {m.ready ? '可手动测算' : '待补充数据 / 规则'}
                     </small>
                   </div>
                   <h3>{m.name}</h3>
@@ -194,7 +194,7 @@ export function StrategyCenter({
               </h3>
               <p>
                 回撤按历史净值高点计算，达到或超过阈值即触发；单股默认
-                30%，组合默认 20%，均为可修改的演示阈值。
+                30%，组合默认 20%，均可根据需要修改。
               </p>
               <div className="strategy-settings-fields">
                 {(['single', 'portfolio'] as const).map((key) => (
@@ -214,7 +214,7 @@ export function StrategyCenter({
                   </label>
                 ))}
                 <label>
-                  演示对象
+                  测算对象
                   <select
                     value={scope}
                     onChange={(e) => {
@@ -223,7 +223,7 @@ export function StrategyCenter({
                     }}
                   >
                     <option value="portfolio">整个组合</option>
-                    <option value="single">单股示例</option>
+                    <option value="single">单只持仓</option>
                   </select>
                 </label>
                 <label>

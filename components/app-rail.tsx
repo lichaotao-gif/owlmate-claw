@@ -159,7 +159,7 @@ export function AppRail() {
               <b>
                 {session?.signedIn === false
                   ? '未登录'
-                  : (profile?.username ?? '演示账户')}
+                  : (profile?.username ?? '访客账户')}
               </b>
               <small>
                 {profile
@@ -200,7 +200,7 @@ export function AppRail() {
       <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
         <AlertDialogContent className="account-logout-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>退出当前演示账户？</AlertDialogTitle>
+            <AlertDialogTitle>退出当前账户？</AlertDialogTitle>
             <AlertDialogDescription>
               只结束当前登录状态，本机持仓、投资画像和模拟方案都会保留。
             </AlertDialogDescription>

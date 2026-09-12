@@ -92,7 +92,7 @@ const meta: Record<
   profile: {
     eyebrow: 'ACCOUNT & PROFILE',
     title: '账户与画像',
-    description: '查看演示账户状态，以及画像如何影响组合建议。',
+    description: '查看账户状态，以及画像如何影响组合建议。',
   },
 };
 
@@ -106,7 +106,7 @@ function useLocalAccount() {
         const raw = localStorage.getItem('owlmate-account-v1');
         if (raw) setAccount(parseAccount(raw));
       } catch {
-        setNotice('本机账户读取失败，暂时显示示例数据。');
+        setNotice('本机账户读取失败，暂时显示初始数据。');
       }
     }, 0);
     return () => window.clearTimeout(timer);
@@ -136,7 +136,7 @@ function FeatureHeader() {
       <span className="workspace-label">个人投资工作台</span>
       <div className="header-right">
         <span className="demo-badge">
-          <i /> 交互演示
+          <i /> 个人投资工作台
         </span>
         <Link className="feature-home-link" href="/">
           <ArrowLeft size={14} /> 返回首页
@@ -159,7 +159,7 @@ function PageHeading({ section }: { section: FeatureSection }) {
         <p>{item.description}</p>
       </div>
       <span className="feature-local-badge">
-        <LockKeyhole size={14} /> 本机演示数据
+        <LockKeyhole size={14} /> 本机账户数据
       </span>
     </div>
   );
@@ -357,7 +357,7 @@ function SimulationView({ account }: { account: Account }) {
             <h2>组合未来路径</h2>
             <p>以当前账户为基数，仅改变模拟仓位和情景</p>
           </div>
-          <span className="purple-tag">DEMO</span>
+          <span className="purple-tag">SCENARIO</span>
         </div>
         <div className="feature-scenario-toolbar">
           <Tabs
@@ -522,7 +522,7 @@ function EventsView({ account }: { account: Account }) {
         <Radio size={19} />
         <h2>只关注与你有关的事件</h2>
         <p>
-          事件会根据本机持仓、仓位和区间设置生成。演示版尚未接入实时新闻与行情。
+          事件会根据本机持仓、仓位和区间设置生成。实时新闻与行情将在数据服务接入后同步更新。
         </p>
         <div>
           <span>
@@ -673,7 +673,7 @@ function HelpView() {
           <Database size={19} />
           <h2>数据从哪里来？</h2>
           <p>
-            当前持仓、方案和画像保存在这台电脑的浏览器中；行情和事件均为演示数据。
+            当前持仓、方案和画像保存在这台电脑的浏览器中；历史行情按数据日期展示，事件由持仓规则生成。
           </p>
         </article>
         <article className="panel">
@@ -687,7 +687,7 @@ function HelpView() {
           <FileQuestion size={19} />
           <h2>建议代表收益承诺吗？</h2>
           <p>
-            不代表。区间与结果来自演示规则，主要用于帮助理解组合结构和风险。
+            不代表。区间与结果来自账户规则，主要用于帮助理解组合结构和风险。
           </p>
         </article>
       </section>
@@ -722,11 +722,11 @@ function ProfileView({ account }: { account: Account }) {
     <div className="feature-profile-layout">
       <section className="panel profile-account-card">
         <span className="profile-large-avatar">
-          {(profile?.username ?? '演示账户').slice(0, 1)}
+          {(profile?.username ?? '访客账户').slice(0, 1)}
           <small>LV{identity.level}</small>
         </span>
         <div>
-          <span>{profile?.username ?? '演示账户'}</span>
+          <span>{profile?.username ?? '访客账户'}</span>
           <h2>
             {identity.name} · {profile?.riskLabel ?? '待建立风险画像'}
           </h2>
@@ -770,7 +770,7 @@ function ProfileView({ account }: { account: Account }) {
           <div className="identity-title">
             <div>
               <span>风险画像</span>
-              <h2>{profile?.riskLabel ?? '默认演示画像'}</h2>
+              <h2>{profile?.riskLabel ?? '待完善投资画像'}</h2>
             </div>
             <strong>{riskPosition}%</strong>
           </div>
@@ -808,15 +808,15 @@ function ProfileView({ account }: { account: Account }) {
         <article className="panel">
           <UserRound size={18} />
           <span>账户状态</span>
-          <b>本机演示账户</b>
-          <small>{profile?.phoneMasked || '尚未绑定演示手机号'}</small>
+          <b>本机账户</b>
+          <small>{profile?.phoneMasked || '尚未绑定手机号'}</small>
         </article>
         <article className="panel">
           <Target size={18} />
           <span>当前建议依据</span>
-          <b>{profile?.riskLabel ?? '示例稳健配置'}</b>
+          <b>{profile?.riskLabel ?? '默认稳健配置'}</b>
           <small>
-            风险资产演示上限 {profile?.recommendedAllocation ?? 65}% ·{' '}
+            风险资产参考上限 {profile?.recommendedAllocation ?? 65}% ·{' '}
             {profile ? '根据画像计算' : '未建立画像，使用默认值'}
           </small>
         </article>
@@ -887,7 +887,7 @@ export function FeatureWorkspace({ section }: { section: FeatureSection }) {
           <footer className="page-footer feature-footer">
             <span>
               <ShieldCheck size={12} />
-              本机账户 · 演示规则 · 未接入真实交易
+              本机账户 · 规则分析 · 不自动执行交易
             </span>
             <span>OwlMate / Investment in perspective.</span>
           </footer>

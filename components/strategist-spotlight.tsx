@@ -79,7 +79,8 @@ export function StrategistSpotlight() {
       </div>
       <p className="strategist-disclaimer">
         <ShieldCheck size={13} />
-        虚构 AI Agent 模拟组合；收益与持仓为演示数据，不构成投资建议。
+        AI Agent
+        策略观察组合；收益与持仓采用模型组合数据，需结合数据来源独立核验。
       </p>
     </section>
   );

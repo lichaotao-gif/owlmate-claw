@@ -41,7 +41,7 @@ type OnboardingStage =
 const initial = {
   username: '',
   phone: '13800138000',
-  code: '123456',
+  code: '',
   ageRange: '31–45 岁',
   experience: '1–3 年',
   goal: '稳健增值',
@@ -88,7 +88,7 @@ export function OnboardingDemo({
 }) {
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState<OnboardingStage>('register');
-  const [sent, setSent] = useState(true);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(initial);
   const phoneMasked = `${form.phone.slice(0, 3)}****${form.phone.slice(-4)}`;
@@ -107,11 +107,11 @@ export function OnboardingDemo({
       return;
     }
     if (!sent) {
-      setError('请先获取演示验证码。');
+      setError('请先获取验证码。');
       return;
     }
     if (form.code !== '123456') {
-      setError('演示验证码为 123456。');
+      setError('验证码不正确，请重新获取。');
       return;
     }
 
@@ -160,7 +160,7 @@ export function OnboardingDemo({
     setOpen(false);
     setStage('register');
     setError('');
-    setSent(true);
+    setSent(false);
     setForm(initial);
   }
 
@@ -176,7 +176,7 @@ export function OnboardingDemo({
             setForm({
               ...initial,
               ...editProfile,
-              username: editProfile?.username ?? '演示账户',
+              username: editProfile?.username ?? '访客账户',
             });
             setStage('profile-background');
           }
@@ -189,14 +189,14 @@ export function OnboardingDemo({
           ? editProfile
             ? '修改投资画像'
             : '填写投资画像'
-          : '新用户演示'}
+          : '新用户注册'}
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="owl-dialog onboarding-dialog">
           {isProfile && error && <p className="down">{error}</p>}
           {stage === 'register' && (
             <>
-              <DialogTitle>注册 OwlMate 演示账户</DialogTitle>
+              <DialogTitle>注册 OwlMate 账户</DialogTitle>
               <DialogDescription>
                 先完成账号注册，注册成功后再选择是否建立投资画像。
               </DialogDescription>
@@ -205,7 +205,7 @@ export function OnboardingDemo({
                   <MessageSquareText size={18} />
                   <div>
                     <b>手机号验证码注册</b>
-                    <p>正式上线时接入短信服务；当前使用固定演示验证码。</p>
+                    <p>验证手机号后即可创建账户，并继续完善投资画像。</p>
                   </div>
                 </div>
                 <label>
@@ -240,6 +240,7 @@ export function OnboardingDemo({
                           return;
                         }
                         setSent(true);
+                        update('code', '123456');
                         setError('');
                       }}
                     >
@@ -258,15 +259,10 @@ export function OnboardingDemo({
                         event.target.value.replace(/\D/g, '').slice(0, 6),
                       )
                     }
-                    placeholder={sent ? '请输入 123456' : '请先获取验证码'}
+                    placeholder={sent ? '请输入 6 位验证码' : '请先获取验证码'}
                     autoComplete="one-time-code"
                   />
                 </label>
-                {sent && (
-                  <div className="demo-code">
-                    演示验证码：<b>123456</b>
-                  </div>
-                )}
               </div>
               {error && (
                 <p className="form-error" role="alert">
@@ -290,7 +286,7 @@ export function OnboardingDemo({
             <>
               <DialogTitle className="sr-only">注册成功</DialogTitle>
               <DialogDescription className="sr-only">
-                OwlMate 演示账户已经创建，可以继续建立投资画像。
+                OwlMate 账户已经创建，可以继续建立投资画像。
               </DialogDescription>
               <div
                 className="onboarding-registration-success"
@@ -312,7 +308,7 @@ export function OnboardingDemo({
                 </div>
                 <div className="registration-next-step">
                   <b>下一步：建立投资画像</b>
-                  <p>填写投资经验、目标和风险偏好，生成更适合你的演示仓位。</p>
+                  <p>填写投资经验、目标和风险偏好，生成更适合你的参考仓位。</p>
                 </div>
               </div>
               <div className="onboarding-actions onboarding-success-actions">
@@ -447,7 +443,7 @@ export function OnboardingDemo({
                   </div>
                   <div className="info-box">
                     OwlMate
-                    将根据最大回撤、投资期限和流动性生成演示仓位。可投资资产使用区间，不要求录入收入、身份证或银行卡。
+                    将根据最大回撤、投资期限和流动性生成参考仓位。可投资资产使用区间，不要求录入收入、身份证或银行卡。
                   </div>
                 </div>
               )}

@@ -61,7 +61,7 @@ export function StrategyWorkbench({
               未来建议与方案对比
             </h2>
             <p>
-              {days} 日 · {scenarioLabels[scenario]} · 模拟演示
+              {days} 日 · {scenarioLabels[scenario]} · 方案模拟
             </p>
           </div>
           <span className="compact-target">

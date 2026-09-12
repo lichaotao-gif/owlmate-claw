@@ -37,9 +37,7 @@ export function PortfolioHealth({
           </span>
           <span className="health-toggle-label">查看体检</span>
         </summary>
-        <p className="health-intro">
-          随持仓更新 · 演示规则；未触发不代表没有风险。
-        </p>
+        <p className="health-intro">随持仓更新 · 规则未触发不代表没有风险。</p>
         <div className="health-grid">
           <details>
             <summary>
@@ -50,10 +48,10 @@ export function PortfolioHealth({
             </summary>
             <div className="health-detail">
               <p>
-                持仓市值 ÷ 总资产。{hasProfile ? '画像' : '未填写画像，示例'}
+                持仓市值 ÷ 总资产。{hasProfile ? '画像' : '未填写画像，默认'}
                 上限为 {limit}%，当前现金占比为{' '}
                 {(100 - summary.riskAllocation).toFixed(1)}
-                %。演示将全部持仓计入风险资产。
+                %。当前规则将全部持仓计入风险资产。
               </p>
               <p>
                 试算目标 {targets.allocation.toFixed(1)}%，保持各标的相对比例。
@@ -82,16 +80,16 @@ export function PortfolioHealth({
               <span>
                 最大单一持仓 <b>{largest.toFixed(1)}%</b>
               </span>
-              <em>{concentrated ? '超过示例阈值' : '未触发'} · 查看依据</em>
+              <em>{concentrated ? '超过参考阈值' : '未触发'} · 查看依据</em>
             </summary>
             <div className="health-detail">
               <p>
                 {summary.largest?.name ?? '暂无持仓'}；以该持仓市值 ÷
-                总资产计算，演示阈值为 30%。不包含 ETF
+                总资产计算，参考阈值为 30%。不包含 ETF
                 底层成分的重叠与行业分析。
               </p>
               <p>
-                按比例降低总仓位可减少该标的占账户比例，但不会改善持仓内部的相对集中度。此处只演示增加现金后的变化。
+                按比例降低总仓位可减少该标的占账户比例，但不会改善持仓内部的相对集中度。此处只计算增加现金后的变化。
               </p>
               {concentrated && (
                 <button
@@ -99,7 +97,7 @@ export function PortfolioHealth({
                   onClick={() =>
                     onSimulate(
                       targets.concentration,
-                      `单一持仓体检：${summary.largest?.name} 占账户 ${largest.toFixed(1)}%，示例阈值 30%；按比例减仓，仅降低账户层面的暴露。`,
+                      `单一持仓体检：${summary.largest?.name} 占账户 ${largest.toFixed(1)}%，参考阈值 30%；按比例减仓，仅降低账户层面的暴露。`,
                     )
                   }
                 >

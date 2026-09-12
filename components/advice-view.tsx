@@ -23,7 +23,7 @@ export function AdviceSummary({
   const changed = Math.abs(allocation - target) > 0.01;
   return (
     <div className="advice-summary">
-      <div className="advice-kicker">OWL MATE · 演示规则建议</div>
+      <div className="advice-kicker">OWL MATE · 组合规则建议</div>
       <h3>
         {total <= 0
           ? '先添加账户资产，再比较配置'
@@ -33,7 +33,7 @@ export function AdviceSummary({
       </h3>
       <p>
         当前 {current.toFixed(1)}% → 参考目标 <b>{target.toFixed(1)}%</b> ·{' '}
-        {profile ? '结合已填写画像' : '未建立画像，使用示例上限 65%'}{' '}
+        {profile ? '结合已填写画像' : '未建立画像，使用默认上限 65%'}{' '}
       </p>
       <div className="advice-actions">
         <span>
@@ -52,8 +52,8 @@ export function AdviceSummary({
           <p>
             <b>画像依据</b>
             {profile
-              ? `${profile.riskLabel} · ${profile.horizon}。使用画像问卷给出的演示上限 ${profile.recommendedAllocation}%。`
-              : '尚未填写；65% 是产品演示预设，不是对你的风险承受能力评估。'}
+              ? `${profile.riskLabel} · ${profile.horizon}。使用画像问卷给出的参考上限 ${profile.recommendedAllocation}%。`
+              : '尚未填写；65% 是系统默认值，不是对你的风险承受能力评估。'}
           </p>
           <p>
             <b>触发规则</b>目标取「当前仓位」与「画像上限（缺省
@@ -72,7 +72,7 @@ export function AdviceSummary({
           </p>
           <p>
             <b>何时复核</b>
-            持仓改变时重新计算规则目标，试算仓位可通过下方滑块调整；完成画像录入会载入画像的演示仓位。资金用途改变或获得新行情时，应重新评估，不自动执行交易。
+            持仓改变时重新计算规则目标，试算仓位可通过下方滑块调整；完成画像录入会载入画像的参考仓位。资金用途改变或获得新行情时，应重新评估，不自动执行交易。
           </p>
         </div>
       </details>

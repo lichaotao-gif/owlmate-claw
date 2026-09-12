@@ -384,7 +384,7 @@ export function ValuationZonePanel({
                     </figure>
                     <div className="zone-range-foot">
                       <span>
-                        {asset.range.note && asset.range.note !== '演示区间'
+                        {asset.range.note && asset.range.note !== '系统参考区间'
                           ? asset.range.note
                           : 'Agent 综合建议'}{' '}
                         ·{' '}
@@ -442,7 +442,7 @@ export function ValuationZonePanel({
       <p className="zone-disclaimer">
         <ShieldCheck size={13} />
         “建议区间”由 Agent
-        演示规则综合生成，可由用户调整；仅用于复核与情景试算，不代表安全承诺或买卖建议。
+        组合规则综合生成，可由用户调整；用于复核与情景试算，不代表安全承诺或买卖指令。
       </p>
       <Dialog
         open={explained !== undefined}
@@ -550,7 +550,7 @@ export function ValuationZonePanel({
                 <ShieldCheck size={14} />
                 <p>
                   <b>当前未参与</b>
-                  实时行情、财务数据、新闻事件、盈利预测与真实策略回测尚未接入；因此这是可解释的演示规则结果，不是实时投资建议。
+                  实时行情、财务数据、新闻事件、盈利预测与策略回测尚未完全接入；当前结果来自可解释规则，需结合最新市场信息复核。
                 </p>
               </div>
             </div>

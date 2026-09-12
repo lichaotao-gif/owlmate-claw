@@ -885,6 +885,13 @@ button {
 .purple {
   background: #b9a0ff;
 }
+.chart-legend .forecast-range-dot {
+  width: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #69aaf5, #59d2ad);
+  opacity: 0.55;
+  box-shadow: 0 0 8px #7aa8dc55;
+}
 .projection > svg {
   width: 100%;
   height: auto;
