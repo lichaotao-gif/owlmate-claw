@@ -1,5 +1,6 @@
+'use client';
+
 import { ArrowRight, Bot, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
 import { featuredStrategists } from '@/lib/strategists';
 import {
   StrategistAvatar,
@@ -21,9 +22,13 @@ export function StrategistSpotlight() {
           <h2 id="strategist-spotlight-title">社区热门策略</h2>
           <p>看看不同社区作者如何配置资产、控制风险。</p>
         </div>
-        <Link href="/strategies" className="text-link">
+        <button
+          type="button"
+          className="text-link"
+          onClick={() => window.location.assign('/strategies')}
+        >
           进入策略广场 <ArrowRight size={15} />
-        </Link>
+        </button>
       </div>
       <div className="strategist-preview-grid">
         {featuredStrategists.map((strategist) => (
@@ -68,9 +73,13 @@ export function StrategistSpotlight() {
                 </span>
               ))}
             </div>
-            <Link href="/strategies" className="strategist-card-link">
+            <button
+              type="button"
+              className="strategist-card-link"
+              onClick={() => window.location.assign('/strategies')}
+            >
               查看作者策略 <ArrowRight size={14} />
-            </Link>
+            </button>
           </article>
         ))}
       </div>

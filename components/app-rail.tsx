@@ -113,15 +113,26 @@ export function AppRail() {
             item.href === '/'
               ? pathname === '/'
               : pathname.startsWith(item.href);
+          const linkProps = {
+            className: `rail-item${active ? ' active' : ''}`,
+            'aria-label': item.label,
+            'aria-current': active ? ('page' as const) : undefined,
+            'data-label': item.short,
+          };
+          if (item.href === '/strategies') {
+            return (
+              <button
+                type="button"
+                {...linkProps}
+                key={item.href}
+                onClick={() => window.location.assign(item.href)}
+              >
+                <Icon />
+              </button>
+            );
+          }
           return (
-            <Link
-              href={item.href}
-              className={`rail-item${active ? ' active' : ''}`}
-              aria-label={item.label}
-              aria-current={active ? 'page' : undefined}
-              data-label={item.short}
-              key={item.href}
-            >
+            <Link href={item.href} {...linkProps} key={item.href}>
               <Icon />
             </Link>
           );

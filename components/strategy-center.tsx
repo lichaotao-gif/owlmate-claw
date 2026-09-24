@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { ArrowRight, Plus, Check, Settings2, Store } from 'lucide-react';
 import {
   Dialog,
@@ -141,15 +140,16 @@ export function StrategyCenter({
   return (
     <>
       <div className="strategy-entry-group">
-        <Link
-          href="/strategies"
+        <button
+          type="button"
           className="strategy-center-trigger"
           aria-label="打开策略广场"
+          onClick={() => window.location.assign('/strategies')}
         >
           <Store size={15} />
           <span>策略广场</span>
           <ArrowRight size={13} />
-        </Link>
+        </button>
         <button
           className="strategy-tools-trigger"
           aria-label={`打开分析工具，当前已添加 ${config.ids.length} 个`}
