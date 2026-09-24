@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { OwlLogo as Glasses } from '@/components/owl-logo';
 import { StrategyCenter } from '@/components/strategy-center';
+import { StrategySelector } from '@/components/strategy-selector';
 import { useInvestorProfile } from '@/lib/profile-store';
 import { PortfolioHealth } from '@/components/portfolio-health';
 import { AdviceSummary } from '@/components/advice-view';
@@ -63,6 +64,13 @@ import {
   type Scenario,
 } from '@/lib/simulation';
 import { StrategistSpotlight } from '@/components/strategist-spotlight';
+import {
+  CUSTOM_STRATEGIES_KEY,
+  defaultInvestmentStrategyId,
+  getInvestmentStrategy,
+  isInvestmentStrategyId,
+  readCustomStrategies,
+} from '@/lib/investment-strategies';
 import { strategists } from '@/lib/strategists';
 import { AppRail } from '@/components/app-rail';
 import {
@@ -669,6 +677,9 @@ export default function Home() {
     ? `最大持仓 ${summary.largest.name} 占账户 ${largestPercent.toFixed(1)}%。`
     : '当前没有持仓，可先添加资产或维护现金。';
   const [strategySignal, setStrategySignal] = useState('');
+  const [strategyByScope, setStrategyByScope] = useState<Record<string, string>>(
+    {},
+  );
   const events = buildEvents(summary);
   if (strategySignal)
     events.unshift({
@@ -775,6 +786,10 @@ export default function Home() {
     );
   const focusName =
     selected < 0 ? '我的组合' : (assets[selected]?.name ?? '我的组合');
+  const focusCode = selected < 0 ? undefined : assets[selected]?.code;
+  const strategyScope = focusCode ?? 'portfolio';
+  const activeStrategyId =
+    strategyByScope[strategyScope] ?? defaultInvestmentStrategyId;
   const historySeries = useMemo(
     () =>
       selected < 0
@@ -789,6 +804,34 @@ export default function Home() {
       if (window.matchMedia('(max-width:1050px)').matches) setChatOpen(false);
     }, 0);
     return () => window.clearTimeout(responsiveTimer);
+  }, []);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem('owlmate-strategies-v1');
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+          return;
+        const customIds = new Set(
+          readCustomStrategies(
+            localStorage.getItem(CUSTOM_STRATEGIES_KEY),
+          ).map((strategy) => strategy.id),
+        );
+        const safe = Object.fromEntries(
+          Object.entries(parsed).filter(
+            ([key, value]) =>
+              (key === 'portfolio' || /^[0-9]{6}$/.test(key)) &&
+              typeof value === 'string' &&
+              (isInvestmentStrategyId(value) || customIds.has(value)),
+          ),
+        ) as Record<string, string>;
+        setStrategyByScope(safe);
+      } catch {
+        setNotice('策略偏好读取失败，暂时使用稳健仓位策略。');
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
   useEffect(
     () => registerSimulationTools({ setAllocation, setDays, setScenario }),
@@ -1089,16 +1132,24 @@ export default function Home() {
                   </button>
                 </div>
                 <div className="chart-toolbar">
-                  {selected < 0 && (
-                    <button
-                      className="text-link history-replay-toggle"
-                      aria-pressed={historyReplay}
-                      onClick={() => setHistoryReplay((value) => !value)}
-                    >
-                      <RotateCcw size={14} />
-                      {historyReplay ? '隐藏历史回放' : '历史方案对比'}
-                    </button>
-                  )}
+                  <button
+                    className="text-link history-replay-toggle"
+                    aria-pressed={historyReplay && selected < 0}
+                    onClick={() => {
+                      if (selected >= 0) {
+                        setSelected(-1);
+                        setHistoryReplay(true);
+                        setNotice('已切换到组合视角，并打开历史方案对比。');
+                        return;
+                      }
+                      setHistoryReplay((value) => !value);
+                    }}
+                  >
+                    <RotateCcw size={14} />
+                    {historyReplay && selected < 0
+                      ? '隐藏历史回放'
+                      : '历史方案对比'}
+                  </button>
                   <button
                     className="text-link"
                     aria-expanded={pressure}
@@ -1135,6 +1186,40 @@ export default function Home() {
                     </TabsList>
                   </Tabs>
                 </div>
+                <StrategySelector
+                  value={activeStrategyId}
+                  focusCode={focusCode}
+                  focusName={focusName}
+                  onChange={(value) => {
+                    const next = { ...strategyByScope, [strategyScope]: value };
+                    setStrategyByScope(next);
+                    try {
+                      localStorage.setItem(
+                        'owlmate-strategies-v1',
+                        JSON.stringify(next),
+                      );
+                    } catch {
+                      // The selection still works for the current page session.
+                    }
+                    let strategyName = '所选策略';
+                    if (isInvestmentStrategyId(value))
+                      strategyName = getInvestmentStrategy(value).name;
+                    else {
+                      try {
+                        strategyName =
+                          readCustomStrategies(
+                            localStorage.getItem(CUSTOM_STRATEGIES_KEY),
+                          ).find((strategy) => strategy.id === value)?.name ??
+                          strategyName;
+                      } catch {
+                        // Keep the generic label if local custom data is unavailable.
+                      }
+                    }
+                    setNotice(
+                      `${focusName}已切换为${strategyName}；策略信号与说明已更新。`,
+                    );
+                  }}
+                />
                 <Projection
                   allocation={allocation}
                   days={days}

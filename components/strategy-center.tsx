@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Layers3, Plus, Check, Settings2 } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, Plus, Check, Settings2, Store } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -54,17 +55,21 @@ const modules = [
   },
   {
     id: 'etf1',
-    name: '猫头鹰 ETF 1 号',
+    name: '大类资产 ETF 轮动 · 猫头鹰策略 ETF 1 号',
     group: '主策略',
-    desc: '大类资产 ETF 轮动策略。',
-    needs: '待补充选池、排序、调仓及退出规则。',
+    desc: '25 日归一化价格线性回归，以斜率 × R² 排名并持有最强 1 只 ETF。',
+    needs: '原始池：513100、518880、510880、159915；每日复核排名。',
+    ready: true,
+    library: true,
   },
   {
     id: 'etf2',
-    name: '猫头鹰 ETF 2 号',
+    name: '大类资产 ETF 轮动 · 猫头鹰策略 ETF 2 号',
     group: '主策略',
-    desc: '大类资产 ETF 轮动策略。',
-    needs: '待补充选池、排序、调仓及退出规则。',
+    desc: '使用相同动量评分选择最强 2 只 ETF，按目标资金等权配置。',
+    needs: '仅当入选名单变化时再平衡；原始回测参数为 25 日窗口。',
+    ready: true,
+    library: true,
   },
 ];
 type Config = { ids: string[]; single: number; portfolio: number };
@@ -135,16 +140,30 @@ export function StrategyCenter({
   }
   return (
     <>
-      <button className="strategy-center-trigger" onClick={() => setOpen(true)}>
-        <Layers3 size={15} />
-        <span>策略中心</span>
-        <small>{config.ids.length}</small>
-      </button>
+      <div className="strategy-entry-group">
+        <Link
+          href="/strategies"
+          className="strategy-center-trigger"
+          aria-label="打开策略广场"
+        >
+          <Store size={15} />
+          <span>策略广场</span>
+          <ArrowRight size={13} />
+        </Link>
+        <button
+          className="strategy-tools-trigger"
+          aria-label={`打开分析工具，当前已添加 ${config.ids.length} 个`}
+          onClick={() => setOpen(true)}
+        >
+          <Settings2 size={15} />
+          <small>{config.ids.length}</small>
+        </button>
+      </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="owl-dialog strategy-center-dialog">
-          <DialogTitle>策略中心</DialogTitle>
+          <DialogTitle>策略库与分析工具</DialogTitle>
           <DialogDescription>
-            为整个组合添加分析与风控模块。当前设置保存在本机，手动触发规则不会改变持仓。
+            管理组合分析工具，并查看可在历史走势与未来推演中切换的主策略。
           </DialogDescription>
           <div className="strategy-center-overview">
             <div>
@@ -153,7 +172,9 @@ export function StrategyCenter({
                   ? '基础风险观察已启用'
                   : '基础风险观察未启用'}
               </b>
-              <small>{config.ids.length} 个已添加 · 主策略待规则补充</small>
+              <small>
+                {config.ids.length} 个分析工具已添加 · 2 套轮动策略已入库
+              </small>
             </div>
             <span>风控限制 → 主策略 → 辅助信号</span>
           </div>
@@ -168,20 +189,30 @@ export function StrategyCenter({
                   <div>
                     <span>{m.group}</span>
                     <small>
-                      {m.ready ? '可手动测算' : '待补充数据 / 规则'}
+                      {m.library
+                        ? '已解析规则'
+                        : m.ready
+                          ? '可手动测算'
+                          : '待补充数据 / 规则'}
                     </small>
                   </div>
                   <h3>{m.name}</h3>
                   <p>{m.desc}</p>
                   <small>{m.needs}</small>
-                  <button onClick={() => toggle(m.id)}>
-                    {added ? <Check size={14} /> : <Plus size={14} />}{' '}
-                    {added
-                      ? '已添加 · 点击移除'
-                      : m.ready
-                        ? '添加到组合'
-                        : '添加关注'}
-                  </button>
+                  {m.library ? (
+                    <span className="strategy-library-status">
+                      <Check size={14} /> 已入策略库 · 可在推演图切换
+                    </span>
+                  ) : (
+                    <button onClick={() => toggle(m.id)}>
+                      {added ? <Check size={14} /> : <Plus size={14} />}{' '}
+                      {added
+                        ? '已添加 · 点击移除'
+                        : m.ready
+                          ? '添加到组合'
+                          : '添加关注'}
+                    </button>
+                  )}
                 </article>
               );
             })}

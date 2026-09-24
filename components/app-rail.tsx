@@ -13,8 +13,8 @@ import {
   LogOut,
   Radio,
   ShieldCheck,
+  Store,
   UserRound,
-  Users,
   Wallet,
 } from 'lucide-react';
 import { OwlLogo } from '@/components/owl-logo';
@@ -61,7 +61,7 @@ const items = [
     short: '情景试算',
     icon: FlaskConical,
   },
-  { href: '/strategists', label: '策略达人', short: '策略达人', icon: Users },
+  { href: '/strategies', label: '策略广场', short: '策略广场', icon: Store },
   { href: '/events', label: '事件雷达', short: '事件雷达', icon: Radio },
   { href: '/plans', label: '我的模拟方案', short: '我的方案', icon: Bookmark },
 ] as const;

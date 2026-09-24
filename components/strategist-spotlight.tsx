@@ -18,11 +18,11 @@ export function StrategistSpotlight() {
           <span className="eyebrow">
             <Bot size={13} /> AI AGENT PORTFOLIOS
           </span>
-          <h2 id="strategist-spotlight-title">策略达人</h2>
-          <p>看看不同 AI Agent 如何配置资产、控制风险。</p>
+          <h2 id="strategist-spotlight-title">社区热门策略</h2>
+          <p>看看不同社区作者如何配置资产、控制风险。</p>
         </div>
-        <Link href="/strategists" className="text-link">
-          查看全部策略达人 <ArrowRight size={15} />
+        <Link href="/strategies" className="text-link">
+          进入策略广场 <ArrowRight size={15} />
         </Link>
       </div>
       <div className="strategist-preview-grid">
@@ -43,7 +43,7 @@ export function StrategistSpotlight() {
                 </h3>
                 <p>{strategist.role}</p>
               </div>
-              <span className="curated-tag">平台精选</span>
+              <span className="curated-tag">社区作者</span>
             </div>
             <div className="strategist-return-row">
               <div>
@@ -68,19 +68,15 @@ export function StrategistSpotlight() {
                 </span>
               ))}
             </div>
-            <Link
-              href={`/strategists#${strategist.id}`}
-              className="strategist-card-link"
-            >
-              查看组合与决策 <ArrowRight size={14} />
+            <Link href="/strategies" className="strategist-card-link">
+              查看作者策略 <ArrowRight size={14} />
             </Link>
           </article>
         ))}
       </div>
       <p className="strategist-disclaimer">
         <ShieldCheck size={13} />
-        AI Agent
-        策略观察组合；收益与持仓采用模型组合数据，需结合数据来源独立核验。
+        社区身份与策略内容包含演示数据；平台不提供投资策略，需结合数据来源独立核验。
       </p>
     </section>
   );
