@@ -28,6 +28,7 @@ import {
 import { OwlLogo as Glasses } from '@/components/owl-logo';
 import { StrategyCenter } from '@/components/strategy-center';
 import { StrategySelector } from '@/components/strategy-selector';
+import { HoldingTriggerReference } from '@/components/holding-trigger-reference';
 import { useInvestorProfile } from '@/lib/profile-store';
 import { PortfolioHealth } from '@/components/portfolio-health';
 import { AdviceSummary } from '@/components/advice-view';
@@ -1222,6 +1223,9 @@ export default function Home() {
                     );
                   }}
                 />
+                {selected >= 0 && assets[selected] && (
+                  <HoldingTriggerReference holding={assets[selected]} />
+                )}
                 <Projection
                   allocation={allocation}
                   days={days}
