@@ -3,7 +3,11 @@ import { marketHistory } from '@/lib/market-data';
 export type InvestmentStrategyId =
   | 'balanced-scenario'
   | 'owl-rotation-1'
-  | 'owl-rotation-2';
+  | 'owl-rotation-2'
+  | 'asset-trend-20'
+  | 'asset-breakout-20'
+  | 'asset-mean-watch'
+  | 'asset-drawdown-guard';
 
 export type InvestmentStrategy = {
   id: InvestmentStrategyId;
@@ -14,6 +18,7 @@ export type InvestmentStrategy = {
   rule: string;
   rebalance: string;
   source: string;
+  scope: 'portfolio' | 'asset' | 'both';
 };
 
 export type CustomStrategy = {
@@ -47,6 +52,7 @@ export const investmentStrategies: InvestmentStrategy[] = [
     rule: '以目标风险资产仓位为核心输入，分别计算上涨、震荡和下跌情景。',
     rebalance: '由用户调整目标仓位后生成方案，不自动修改持仓。',
     source: 'OwlMate 内置规则',
+    scope: 'portfolio',
   },
   {
     id: 'owl-rotation-1',
@@ -57,6 +63,7 @@ export const investmentStrategies: InvestmentStrategy[] = [
     rule: '取最近 25 个交易日归一化收盘价，按线性回归斜率 × R² 排序。',
     rebalance: '每个交易日复核排名，目标资金集中到排名第一的 ETF。',
     source: '附件策略 etf_rotation_strategy.py',
+    scope: 'both',
   },
   {
     id: 'owl-rotation-2',
@@ -67,11 +74,58 @@ export const investmentStrategies: InvestmentStrategy[] = [
     rule: '取最近 25 个交易日归一化收盘价，按线性回归斜率 × R² 排序。',
     rebalance: '仅当入选名单变化时再平衡，入选 ETF 之间等权配置。',
     source: '附件策略 etf_rotation_strategy_v2.py',
+    scope: 'both',
+  },
+  {
+    id: 'asset-trend-20',
+    name: '单资产 20 日趋势确认',
+    shortName: '20 日趋势确认',
+    type: '趋势观察',
+    summary:
+      '结合 20 日均线与近 5 日变化，判断单个资产的短期趋势是否获得确认。',
+    rule: '收盘价位于 20 日均线上方，且近 5 个交易日变化为正时，标记为趋势确认。',
+    rebalance: '每日收盘后复核，不以盘中瞬时波动触发。',
+    source: 'OwlMate 单资产观察规则',
+    scope: 'asset',
+  },
+  {
+    id: 'asset-breakout-20',
+    name: '单资产 20 日区间突破',
+    shortName: '20 日区间突破',
+    type: '突破观察',
+    summary: '比较当前收盘价与前 20 个交易日高点，识别是否出现区间突破。',
+    rule: '只在收盘价达到或超过前 20 日最高收盘价时确认，不使用盘中最高价。',
+    rebalance: '每日收盘后复核，突破失效时恢复观察。',
+    source: 'OwlMate 单资产观察规则',
+    scope: 'asset',
+  },
+  {
+    id: 'asset-mean-watch',
+    name: '单资产均值偏离观察',
+    shortName: '均值偏离观察',
+    type: '区间观察',
+    summary: '用 20 日均值和标准差衡量价格偏离程度，帮助识别过度伸展。',
+    rule: '当收盘价与 20 日均值的偏离超过 1 个标准差时，进入偏离复核区。',
+    rebalance: '每日复核偏离值，仅作观察信号，不单独构成交易依据。',
+    source: 'OwlMate 单资产观察规则',
+    scope: 'asset',
+  },
+  {
+    id: 'asset-drawdown-guard',
+    name: '单资产 60 日回撤保护',
+    shortName: '60 日回撤保护',
+    type: '风险观察',
+    summary: '跟踪当前收盘价相对近 60 日高点的回撤，强化单资产风险复核。',
+    rule: '相对近 60 日最高收盘价回撤达到 8% 时，进入风险复核状态。',
+    rebalance: '每日收盘后复核，优先检查仓位集中度与组合风险预算。',
+    source: 'OwlMate 单资产观察规则',
+    scope: 'asset',
   },
 ];
 
 export const defaultInvestmentStrategyId: InvestmentStrategyId =
   'balanced-scenario';
+export const defaultAssetStrategyId: InvestmentStrategyId = 'asset-trend-20';
 
 const rotationUniverse = ['513100', '518880', '510880', '159915'];
 
@@ -259,7 +313,7 @@ export function customStrategyMarkdown(strategy: CustomStrategy) {
 }
 
 export function rotationSnapshot(id: InvestmentStrategyId) {
-  if (id === 'balanced-scenario') return null;
+  if (id !== 'owl-rotation-1' && id !== 'owl-rotation-2') return null;
   const ranked = rotationUniverse
     .map((code) => {
       const asset = marketHistory[code];
@@ -285,6 +339,78 @@ export function rotationSnapshot(id: InvestmentStrategyId) {
   };
 }
 
+function assetObservationSignal(id: InvestmentStrategyId, focusCode?: string) {
+  if (!id.startsWith('asset-')) return null;
+  const asset = focusCode ? marketHistory[focusCode] : undefined;
+  const bars = asset?.bars.slice(-65) ?? [];
+  if (!asset || bars.length < 21) {
+    return {
+      tone: 'neutral' as const,
+      headline: focusCode ? '当前资产的历史数据不足' : '请先选择一个具体资产',
+      detail: '单资产观察策略至少需要 21 个交易日的收盘数据。',
+    };
+  }
+  const closes = bars.map((bar) => bar.close);
+  const latest = closes.at(-1)!;
+  const last20 = closes.slice(-20);
+  const sma20 = last20.reduce((sum, value) => sum + value, 0) / last20.length;
+  const variance =
+    last20.reduce((sum, value) => sum + Math.pow(value - sma20, 2), 0) /
+    last20.length;
+  const deviation = Math.sqrt(variance);
+  const zScore = deviation ? (latest - sma20) / deviation : 0;
+  const fiveDayBase = closes.at(-6) ?? latest;
+  const fiveDayChange = fiveDayBase ? latest / fiveDayBase - 1 : 0;
+  const previous20 = closes.slice(-21, -1);
+  const previousHigh = Math.max(...previous20);
+  const peak60 = Math.max(...closes.slice(-60));
+  const drawdown = peak60 ? latest / peak60 - 1 : 0;
+  const assetName = asset.name.replace(
+    /(易方达|华泰柏瑞|国泰|华安|华夏)$/u,
+    '',
+  );
+
+  if (id === 'asset-trend-20') {
+    const confirmed = latest >= sma20 && fiveDayChange > 0;
+    return {
+      tone: confirmed ? ('positive' as const) : ('neutral' as const),
+      headline: confirmed
+        ? `${assetName}通过 20 日趋势确认`
+        : `${assetName}尚未通过 20 日趋势确认`,
+      detail: `当前收盘价${latest >= sma20 ? '高于' : '低于'} 20 日均线，近 5 日变化 ${fiveDayChange >= 0 ? '+' : ''}${(fiveDayChange * 100).toFixed(1)}%。仅用于趋势观察。`,
+    };
+  }
+  if (id === 'asset-breakout-20') {
+    const breakout = latest >= previousHigh;
+    const distance = previousHigh ? latest / previousHigh - 1 : 0;
+    return {
+      tone: breakout ? ('positive' as const) : ('neutral' as const),
+      headline: breakout
+        ? `${assetName}收盘价达到 20 日观察高点`
+        : `${assetName}距 20 日观察高点还有 ${Math.abs(distance * 100).toFixed(1)}%`,
+      detail: `前 20 日最高收盘价 ${previousHigh.toFixed(3)}，当前 ${latest.toFixed(3)}。收盘确认前不视为突破。`,
+    };
+  }
+  if (id === 'asset-mean-watch') {
+    const stretched = Math.abs(zScore) >= 1;
+    return {
+      tone: stretched ? ('attention' as const) : ('neutral' as const),
+      headline: stretched
+        ? `${assetName}已进入均值偏离复核区`
+        : `${assetName}仍在常规波动区间`,
+      detail: `当前价格相对 20 日均值偏离 ${zScore.toFixed(2)} 个标准差。偏离不代表必然回归。`,
+    };
+  }
+  const guardTriggered = drawdown <= -0.08;
+  return {
+    tone: guardTriggered ? ('attention' as const) : ('neutral' as const),
+    headline: guardTriggered
+      ? `${assetName}触发 60 日回撤复核`
+      : `${assetName}未触发 8% 回撤阈值`,
+    detail: `相对近 60 日最高收盘价的回撤为 ${(drawdown * 100).toFixed(1)}%。触发后优先复核仓位与集中度。`,
+  };
+}
+
 export function strategySignal(
   id: string,
   focusCode?: string,
@@ -300,6 +426,8 @@ export function strategySignal(
   }
   const safeId = isInvestmentStrategyId(id) ? id : defaultInvestmentStrategyId;
   const strategy = getInvestmentStrategy(safeId);
+  const assetSignal = assetObservationSignal(safeId, focusCode);
+  if (assetSignal) return { ...assetSignal, strategy };
   const snapshot = rotationSnapshot(safeId);
   if (!snapshot) {
     return {

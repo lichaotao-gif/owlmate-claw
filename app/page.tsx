@@ -66,6 +66,7 @@ import {
 import { StrategistSpotlight } from '@/components/strategist-spotlight';
 import {
   CUSTOM_STRATEGIES_KEY,
+  defaultAssetStrategyId,
   defaultInvestmentStrategyId,
   getInvestmentStrategy,
   isInvestmentStrategyId,
@@ -677,9 +678,9 @@ export default function Home() {
     ? `最大持仓 ${summary.largest.name} 占账户 ${largestPercent.toFixed(1)}%。`
     : '当前没有持仓，可先添加资产或维护现金。';
   const [strategySignal, setStrategySignal] = useState('');
-  const [strategyByScope, setStrategyByScope] = useState<Record<string, string>>(
-    {},
-  );
+  const [strategyByScope, setStrategyByScope] = useState<
+    Record<string, string>
+  >({});
   const events = buildEvents(summary);
   if (strategySignal)
     events.unshift({
@@ -789,7 +790,8 @@ export default function Home() {
   const focusCode = selected < 0 ? undefined : assets[selected]?.code;
   const strategyScope = focusCode ?? 'portfolio';
   const activeStrategyId =
-    strategyByScope[strategyScope] ?? defaultInvestmentStrategyId;
+    strategyByScope[strategyScope] ??
+    (focusCode ? defaultAssetStrategyId : defaultInvestmentStrategyId);
   const historySeries = useMemo(
     () =>
       selected < 0
@@ -814,9 +816,9 @@ export default function Home() {
         if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
           return;
         const customIds = new Set(
-          readCustomStrategies(
-            localStorage.getItem(CUSTOM_STRATEGIES_KEY),
-          ).map((strategy) => strategy.id),
+          readCustomStrategies(localStorage.getItem(CUSTOM_STRATEGIES_KEY)).map(
+            (strategy) => strategy.id,
+          ),
         );
         const safe = Object.fromEntries(
           Object.entries(parsed).filter(

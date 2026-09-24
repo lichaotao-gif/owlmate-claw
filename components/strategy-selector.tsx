@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Library, TrendingUp } from 'lucide-react';
+import { CheckCircle2, Library, ShieldAlert, TrendingUp } from 'lucide-react';
 import {
   CUSTOM_STRATEGIES_EVENT,
   CUSTOM_STRATEGIES_KEY,
@@ -50,6 +50,12 @@ export function StrategySelector({
           : defaultInvestmentStrategyId,
       );
   const signal = strategySignal(value, focusCode, customStrategies);
+  const assetStrategies = investmentStrategies.filter(
+    (strategy) => strategy.scope === 'asset',
+  );
+  const portfolioStrategies = investmentStrategies.filter(
+    (strategy) => strategy.scope !== 'asset',
+  );
   return (
     <div className="strategy-selector">
       <div className="strategy-selector-control">
@@ -63,8 +69,17 @@ export function StrategySelector({
             value={value}
             onChange={(event) => onChange(event.target.value)}
           >
-            <optgroup label="情景分析基线">
-              {investmentStrategies.map((strategy) => (
+            {focusCode && (
+              <optgroup label="单资产观察策略">
+                {assetStrategies.map((strategy) => (
+                  <option value={strategy.id} key={strategy.id}>
+                    {strategy.shortName}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            <optgroup label={focusCode ? '组合与轮动策略' : '组合情景策略'}>
+              {portfolioStrategies.map((strategy) => (
                 <option value={strategy.id} key={strategy.id}>
                   {strategy.shortName}
                 </option>
@@ -84,7 +99,9 @@ export function StrategySelector({
         <span className="strategy-type">{active.type}</span>
       </div>
       <output className={`strategy-current-signal ${signal.tone}`}>
-        {signal.tone === 'positive' || signal.tone === 'personal' ? (
+        {signal.tone === 'attention' ? (
+          <ShieldAlert size={15} />
+        ) : signal.tone === 'positive' || signal.tone === 'personal' ? (
           <CheckCircle2 size={15} />
         ) : (
           <TrendingUp size={15} />

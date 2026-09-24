@@ -4558,6 +4558,10 @@ button {
 .strategy-current-signal.positive b {
   color: #67d3b7;
 }
+.strategy-current-signal.attention > svg,
+.strategy-current-signal.attention b {
+  color: #e6b66a;
+}
 .strategy-current-signal span {
   min-width: 0;
 }
