@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -66,6 +66,23 @@ const items = [
   { href: '/plans', label: '我的模拟方案', short: '我的方案', icon: Bookmark },
 ] as const;
 
+function navigateWithPageLoad(
+  event: MouseEvent<HTMLAnchorElement>,
+  href: string,
+) {
+  if (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return;
+  }
+  event.preventDefault();
+  window.location.assign(href);
+}
+
 export function AppRail() {
   const pathname = usePathname();
   const router = useRouter();
@@ -103,7 +120,12 @@ export function AppRail() {
 
   return (
     <nav className="icon-rail" aria-label="主要功能">
-      <Link href="/" className="brand-symbol" aria-label="OwlMate 首页">
+      <Link
+        href="/"
+        className="brand-symbol"
+        aria-label="OwlMate 首页"
+        onClick={(event) => navigateWithPageLoad(event, '/')}
+      >
         <OwlLogo />
       </Link>
       <div className="rail-links">
@@ -119,20 +141,13 @@ export function AppRail() {
             'aria-current': active ? ('page' as const) : undefined,
             'data-label': item.short,
           };
-          if (item.href === '/strategies') {
-            return (
-              <button
-                type="button"
-                {...linkProps}
-                key={item.href}
-                onClick={() => window.location.assign(item.href)}
-              >
-                <Icon />
-              </button>
-            );
-          }
           return (
-            <Link href={item.href} {...linkProps} key={item.href}>
+            <Link
+              href={item.href}
+              {...linkProps}
+              key={item.href}
+              onClick={(event) => navigateWithPageLoad(event, item.href)}
+            >
               <Icon />
             </Link>
           );
@@ -144,6 +159,7 @@ export function AppRail() {
         aria-label="帮助中心"
         aria-current={pathname === '/help' ? 'page' : undefined}
         data-label="帮助中心"
+        onClick={(event) => navigateWithPageLoad(event, '/help')}
       >
         <CircleHelp />
       </Link>
