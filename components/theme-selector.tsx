@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { Monitor, Moon, Sun } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type ThemePreference = 'system' | 'light' | 'dark';
 
@@ -25,6 +32,7 @@ function applyTheme(preference: ThemePreference) {
 
 export function ThemeSelector() {
   const [preference, setPreference] = useState<ThemePreference>('system');
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(THEME_KEY);
@@ -48,25 +56,52 @@ export function ThemeSelector() {
 
   const Icon =
     preference === 'light' ? Sun : preference === 'dark' ? Moon : Monitor;
+  const currentLabel =
+    preference === 'light'
+      ? '日间模式'
+      : preference === 'dark'
+        ? '夜间模式'
+        : '跟随系统';
+
+  function changePreference(value: string) {
+    if (!isThemePreference(value)) return;
+    setPreference(value);
+    localStorage.setItem(THEME_KEY, value);
+    applyTheme(value);
+    setOpen(false);
+  }
 
   return (
-    <label className="theme-selector">
-      <Icon size={15} aria-hidden="true" />
-      <span className="sr-only">外观模式</span>
-      <select
-        aria-label="外观模式"
-        value={preference}
-        onChange={(event) => {
-          const next = event.target.value as ThemePreference;
-          setPreference(next);
-          localStorage.setItem(THEME_KEY, next);
-          applyTheme(next);
-        }}
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        className="theme-selector"
+        aria-label={`外观模式：${currentLabel}`}
+        title={currentLabel}
       >
-        <option value="system">跟随系统</option>
-        <option value="light">日间模式</option>
-        <option value="dark">夜间模式</option>
-      </select>
-    </label>
+        <Icon size={17} aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        className="theme-menu"
+        side="bottom"
+        align="end"
+        sideOffset={8}
+      >
+        <span className="theme-menu-title">外观模式</span>
+        <DropdownMenuRadioGroup
+          value={preference}
+          onValueChange={changePreference}
+        >
+          <DropdownMenuRadioItem value="system">
+            <Monitor aria-hidden="true" /> 跟随系统
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="light">
+            <Sun aria-hidden="true" /> 日间模式
+          </DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="dark">
+            <Moon aria-hidden="true" /> 夜间模式
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

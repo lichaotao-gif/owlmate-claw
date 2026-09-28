@@ -516,7 +516,7 @@ function ExperimentCard({
         </span>
         <div>
           <b>{channel.name}</b>
-          <small>{channel.strategyName}</small>
+          <small>策略：{channel.strategyName}</small>
         </div>
       </div>
       <div className="experiment-card-value">
@@ -552,6 +552,8 @@ export function LabDashboard() {
   const [assetEditorOpen, setAssetEditorOpen] = useState(false);
   const [assetDrafts, setAssetDrafts] = useState<DraftAsset[]>([]);
   const [assetEditorError, setAssetEditorError] = useState('');
+  const [strategyEditorOpen, setStrategyEditorOpen] = useState(false);
+  const [strategyDraftId, setStrategyDraftId] = useState('');
   const [name, setName] = useState('');
   const [strategyId, setStrategyId] = useState('');
   const [market, setMarket] = useState<InvestmentMarket | ''>('');
@@ -640,6 +642,25 @@ export function LabDashboard() {
   const selected =
     visibleChannels.find((channel) => channel.id === selectedId) ??
     visibleChannels[0];
+  const switchableStrategies = selected
+    ? [
+        ...(strategies.some((strategy) => strategy.id === selected.strategyId)
+          ? []
+          : [
+              {
+                id: selected.strategyId,
+                name: selected.strategyName,
+                summary: '当前实验正在使用的策略',
+                rule: selected.config,
+                scope: selected.strategyScope,
+                markets: [selected.market],
+              },
+            ]),
+        ...strategies.filter((strategy) =>
+          strategy.markets.includes(selected.market),
+        ),
+      ]
+    : [];
   const totalValue = visibleChannels.reduce(
     (sum, channel) => sum + channel.currentValue,
     0,
@@ -732,6 +753,35 @@ export function LabDashboard() {
     );
     setChannels(next);
     saveExperimentChannels(next);
+  }
+
+  function openStrategyEditor() {
+    if (!selected) return;
+    setStrategyDraftId(selected.strategyId);
+    setStrategyEditorOpen(true);
+  }
+
+  function saveStrategyChange() {
+    if (!selected) return;
+    const strategy = switchableStrategies.find(
+      (item) => item.id === strategyDraftId,
+    );
+    if (!strategy) return;
+    const next = channels.map((channel) =>
+      channel.id === selected.id
+        ? {
+            ...channel,
+            strategyId: strategy.id,
+            strategyName: strategy.name,
+            strategyScope: strategy.scope,
+            config: strategy.rule.slice(0, 500),
+          }
+        : channel,
+    );
+    setChannels(next);
+    saveExperimentChannels(next);
+    setStrategyEditorOpen(false);
+    setNotice(`「${selected.name}」已切换为「${strategy.name}」。`);
   }
 
   function openAssetEditor() {
@@ -838,10 +888,9 @@ export function LabDashboard() {
       <div className="workspace lab-workspace">
         <header className="topbar lab-topbar">
           <div className="wordmark">
-            OwlMate<span className="brand-beta">BETA</span>
+            OwlMate <span className="wordmark-product">实验室</span>
+            <span className="brand-beta">BETA</span>
           </div>
-          <span className="header-divider" />
-          <span className="workspace-label">OwlMate 实验室</span>
           <div className="header-right">
             <button
               className={`lab-demo-toggle${newUserDemo ? ' active' : ''}`}
@@ -855,9 +904,6 @@ export function LabDashboard() {
               <Sparkles size={15} aria-hidden="true" />
               <span>{newUserDemo ? '退出演示' : '新用户演示'}</span>
             </button>
-            <span className="lab-boundary">
-              <ShieldCheck size={14} /> 虚拟仿真 · 不连接真实账户
-            </span>
             <Link href="/strategies" className="lab-strategy-link">
               策略广场 <ArrowRight size={14} />
             </Link>
@@ -1026,25 +1072,38 @@ export function LabDashboard() {
                         <div>
                           <span className="eyebrow">ACTIVE EXPERIMENT</span>
                           <h2 id="experiment-detail-title">{selected.name}</h2>
-                          <p>
-                            {selected.strategyName} · {selected.market} ·{' '}
-                            {selected.strategyScope}
+                          <p className="experiment-strategy-summary">
+                            <span>策略：</span>
+                            <b>{selected.strategyName}</b>
+                            <button
+                              className="experiment-strategy-edit"
+                              onClick={openStrategyEditor}
+                              aria-label={`切换策略，当前策略：${selected.strategyName}`}
+                              title="切换策略"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <small>
+                              {selected.market} · {selected.strategyScope}
+                            </small>
                           </p>
                         </div>
-                        <button
-                          className="lab-secondary-button"
-                          onClick={toggleStatus}
-                        >
-                          {selected.status === '运行中' ? (
-                            <>
-                              <Pause size={14} /> 暂停实验
-                            </>
-                          ) : (
-                            <>
-                              <Play size={14} /> 继续实验
-                            </>
-                          )}
-                        </button>
+                        <div className="experiment-heading-actions">
+                          <button
+                            className="lab-secondary-button"
+                            onClick={toggleStatus}
+                          >
+                            {selected.status === '运行中' ? (
+                              <>
+                                <Pause size={14} /> 暂停实验
+                              </>
+                            ) : (
+                              <>
+                                <Play size={14} /> 继续实验
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="experiment-kpis">
@@ -1170,6 +1229,69 @@ export function LabDashboard() {
           </footer>
         </main>
       </div>
+
+      <Dialog
+        open={strategyEditorOpen}
+        onOpenChange={(open) => {
+          setStrategyEditorOpen(open);
+          if (!open) setStrategyDraftId('');
+        }}
+      >
+        <DialogContent className="owl-dialog experiment-strategy-dialog">
+          <DialogTitle>切换实验策略</DialogTitle>
+          <DialogDescription>
+            当前通道为 {selected?.market ?? '—'}
+            ，仅展示适用于该投资类型的策略。资产与历史日志不会改变。
+          </DialogDescription>
+
+          <div className="experiment-strategy-current">
+            <span>当前策略</span>
+            <b>{selected?.strategyName ?? '—'}</b>
+          </div>
+
+          <div
+            className="experiment-strategy-switch-list"
+            aria-label="选择新的实验策略"
+          >
+            {switchableStrategies.map((strategy) => (
+              <button
+                type="button"
+                key={strategy.id}
+                className={strategyDraftId === strategy.id ? 'active' : ''}
+                aria-pressed={strategyDraftId === strategy.id}
+                onClick={() => setStrategyDraftId(strategy.id)}
+              >
+                <span>
+                  {selected?.market} · {strategy.scope}
+                </span>
+                <b>{strategy.name}</b>
+                <p>{strategy.summary}</p>
+                {strategyDraftId === strategy.id && (
+                  <Check size={16} aria-hidden="true" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="lab-dialog-actions">
+            <button
+              type="button"
+              className="lab-secondary-button"
+              onClick={() => setStrategyEditorOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="lab-primary-button"
+              disabled={!strategyDraftId}
+              onClick={saveStrategyChange}
+            >
+              确认切换
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={assetEditorOpen}
