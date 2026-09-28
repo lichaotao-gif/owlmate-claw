@@ -14,10 +14,12 @@ import {
   FlaskConical,
   ListChecks,
   Pause,
+  Pencil,
   Play,
   Plus,
   ShieldCheck,
   Sparkles,
+  Trash2,
   TrendingDown,
   TrendingUp,
   WalletCards,
@@ -53,6 +55,7 @@ import {
 } from '@/lib/experiment-channels';
 
 type DraftHolding = { id: string; name: string; code: string; amount: string };
+type DraftAsset = Omit<ExperimentAsset, 'amount'> & { amount: string };
 type AssetMode = 'cash' | 'security' | 'mixed';
 
 const steps = ['命名实验', '选择策略', '初始资产'];
@@ -106,6 +109,13 @@ type CandlePoint = {
   volume: number;
   trade?: ExperimentChannel['trades'][number];
 };
+
+const chartRanges = [1, 5, 15, 30, 48] as const;
+type ChartRange = (typeof chartRanges)[number];
+
+function chartRangeLabel(range: ChartRange) {
+  return range === 48 ? '全部' : `${range}日`;
+}
 
 function money(value: number) {
   return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 0 }).format(
@@ -176,8 +186,12 @@ function ExperimentCandlestickChart({
 }: {
   channel: ExperimentChannel;
 }) {
-  const candles = useMemo(() => makeCandleData(channel), [channel]);
+  const allCandles = useMemo(() => makeCandleData(channel), [channel]);
+  const [range, setRange] = useState<ChartRange>(30);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const candles = useMemo(() => allCandles.slice(-range), [allCandles, range]);
+  const rangeDescription =
+    range === 48 ? '全部 48 个交易日' : `近 ${range} 个交易日`;
   const width = 760;
   const height = 318;
   const plot = { left: 48, right: 16, top: 14, bottom: 74 };
@@ -185,7 +199,7 @@ function ExperimentCandlestickChart({
   const priceHeight = height - plot.top - plot.bottom;
   const volumeHeight = 36;
   const candleStep = plotWidth / candles.length;
-  const candleWidth = Math.max(4, candleStep * 0.58);
+  const candleWidth = Math.min(12, Math.max(4, candleStep * 0.58));
   const values = candles.flatMap((item) => [item.high, item.low]);
   const minPrice = Math.min(...values);
   const maxPrice = Math.max(...values);
@@ -202,6 +216,7 @@ function ExperimentCandlestickChart({
     { length: 5 },
     (_, index) => scaleMax - ((scaleMax - scaleMin) * index) / 4,
   );
+  const dateLabelStep = Math.max(1, Math.ceil(candles.length / 6));
 
   function selectFromPointer(clientX: number, target: HTMLElement) {
     const bounds = target.getBoundingClientRect();
@@ -215,6 +230,26 @@ function ExperimentCandlestickChart({
 
   return (
     <figure className="lab-candlestick">
+      <div className="lab-chart-range-toolbar">
+        <span>{rangeDescription}</span>
+        <fieldset>
+          <legend className="sr-only">选择 K 线展示周期</legend>
+          {chartRanges.map((item) => (
+            <button
+              type="button"
+              key={item}
+              aria-pressed={range === item}
+              className={range === item ? 'active' : ''}
+              onClick={() => {
+                setRange(item);
+                setActiveIndex(null);
+              }}
+            >
+              {chartRangeLabel(item)}
+            </button>
+          ))}
+        </fieldset>
+      </div>
       <div className="lab-chart-legend" aria-hidden="true">
         <span>
           <i className="bull" />
@@ -234,7 +269,7 @@ function ExperimentCandlestickChart({
         <button
           type="button"
           className="lab-k-interaction"
-          aria-label={`${channel.name}近48个交易日净值K线图。聚焦后使用左右方向键查看每日行情。`}
+          aria-label={`${channel.name}${rangeDescription}净值K线图。聚焦后使用左右方向键查看每日行情。`}
           onPointerMove={(event) =>
             selectFromPointer(event.clientX, event.currentTarget)
           }
@@ -266,7 +301,10 @@ function ExperimentCandlestickChart({
             aria-hidden="true"
             focusable="false"
           >
-            <title>{channel.name}近48个交易日净值K线</title>
+            <title>
+              {channel.name}
+              {rangeDescription}净值K线
+            </title>
             {priceTicks.map((tick) => (
               <g className="lab-k-grid" key={tick}>
                 <line
@@ -339,7 +377,8 @@ function ExperimentCandlestickChart({
             })}
             {candles
               .filter(
-                (_, index) => index % 9 === 0 || index === candles.length - 1,
+                (_, index) =>
+                  index % dateLabelStep === 0 || index === candles.length - 1,
               )
               .map((candle) => {
                 const index = candles.indexOf(candle);
@@ -510,6 +549,9 @@ export function LabDashboard() {
   const [step, setStep] = useState(0);
   const [notice, setNotice] = useState('');
   const [newUserDemo, setNewUserDemo] = useState(false);
+  const [assetEditorOpen, setAssetEditorOpen] = useState(false);
+  const [assetDrafts, setAssetDrafts] = useState<DraftAsset[]>([]);
+  const [assetEditorError, setAssetEditorError] = useState('');
   const [name, setName] = useState('');
   const [strategyId, setStrategyId] = useState('');
   const [market, setMarket] = useState<InvestmentMarket | ''>('');
@@ -692,6 +734,91 @@ export function LabDashboard() {
     saveExperimentChannels(next);
   }
 
+  function openAssetEditor() {
+    if (!selected) return;
+    setAssetDrafts(
+      selected.assets.map((asset) => ({
+        ...asset,
+        code: asset.code ?? '',
+        amount: String(asset.amount),
+      })),
+    );
+    setAssetEditorError('');
+    setAssetEditorOpen(true);
+  }
+
+  function updateAssetDraft(
+    id: string,
+    field: 'name' | 'code' | 'amount',
+    value: string,
+  ) {
+    setAssetDrafts((current) =>
+      current.map((asset) =>
+        asset.id === id ? { ...asset, [field]: value } : asset,
+      ),
+    );
+    setAssetEditorError('');
+  }
+
+  function addAssetDraft(kind: ExperimentAsset['kind']) {
+    const currency = selected ? marketCurrencyMap[selected.market] : '人民币';
+    setAssetDrafts((current) => [
+      ...current,
+      {
+        id: `${kind}-${Date.now()}`,
+        kind,
+        name: kind === 'cash' ? `${currency}现金` : '',
+        code: '',
+        amount: '',
+      },
+    ]);
+    setAssetEditorError('');
+  }
+
+  function saveAssetChanges() {
+    if (!selected) return;
+    const hasInvalidAsset = assetDrafts.some(
+      (asset) =>
+        !asset.name.trim() ||
+        !Number.isFinite(Number(asset.amount)) ||
+        Number(asset.amount) <= 0,
+    );
+    if (!assetDrafts.length || hasInvalidAsset) {
+      setAssetEditorError(
+        assetDrafts.length
+          ? '请补全每项资产名称，并填写大于 0 的资产金额。'
+          : '至少保留一项现金或持仓资产。',
+      );
+      return;
+    }
+
+    const assets: ExperimentAsset[] = assetDrafts.map((asset) => ({
+      id: asset.id,
+      kind: asset.kind,
+      name: asset.name.trim(),
+      ...(asset.kind === 'security' && asset.code?.trim()
+        ? { code: asset.code.trim() }
+        : {}),
+      amount: Number(asset.amount),
+    }));
+    const initialValue = assets.reduce((sum, asset) => sum + asset.amount, 0);
+    const accumulatedProfit = selected.currentValue - selected.initialValue;
+    const next = channels.map((channel) =>
+      channel.id === selected.id
+        ? {
+            ...channel,
+            assets,
+            initialValue,
+            currentValue: Math.max(0, initialValue + accumulatedProfit),
+          }
+        : channel,
+    );
+    setChannels(next);
+    saveExperimentChannels(next);
+    setAssetEditorOpen(false);
+    setNotice(`「${selected.name}」的初始资产已更新。`);
+  }
+
   const canContinue =
     (step === 0 && name.trim().length > 0) ||
     (step === 1 &&
@@ -856,60 +983,6 @@ export function LabDashboard() {
           )}
 
           {selected && (
-            <section
-              className="experiment-overview-panel"
-              aria-labelledby="experiment-detail-title"
-            >
-              <div className="experiment-detail-heading">
-                <div>
-                  <span className="eyebrow">ACTIVE EXPERIMENT</span>
-                  <h2 id="experiment-detail-title">{selected.name}</h2>
-                  <p>
-                    {selected.strategyName} · {selected.market} ·{' '}
-                    {selected.strategyScope}
-                  </p>
-                </div>
-                <button className="lab-secondary-button" onClick={toggleStatus}>
-                  {selected.status === '运行中' ? (
-                    <>
-                      <Pause size={14} /> 暂停实验
-                    </>
-                  ) : (
-                    <>
-                      <Play size={14} /> 继续实验
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <div className="experiment-kpis">
-                <div>
-                  <span>初始资产</span>
-                  <b>¥{money(selected.initialValue)}</b>
-                </div>
-                <div>
-                  <span>当前资产</span>
-                  <b>¥{money(selected.currentValue)}</b>
-                </div>
-                <div>
-                  <span>累计收益率</span>
-                  <b
-                    className={
-                      selected.currentValue >= selected.initialValue
-                        ? 'up'
-                        : 'down'
-                    }
-                  >
-                    {selected.initialValue
-                      ? `${(((selected.currentValue - selected.initialValue) / selected.initialValue) * 100).toFixed(2)}%`
-                      : '—'}
-                  </b>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {selected && (
             <div className="lab-content-grid">
               <section
                 className="experiment-list-panel"
@@ -944,16 +1017,76 @@ export function LabDashboard() {
                   className="experiment-detail-panel"
                   aria-label={`${selected.name}实验详情`}
                 >
-                  <div className="experiment-chart-card">
-                    <div className="lab-card-heading">
-                      <div>
-                        <span>实验净值 K 线</span>
-                        <b>日 K · 近 48 个交易日</b>
+                  <section
+                    className="experiment-visual-panel"
+                    aria-labelledby="experiment-detail-title"
+                  >
+                    <div className="experiment-overview-panel">
+                      <div className="experiment-detail-heading">
+                        <div>
+                          <span className="eyebrow">ACTIVE EXPERIMENT</span>
+                          <h2 id="experiment-detail-title">{selected.name}</h2>
+                          <p>
+                            {selected.strategyName} · {selected.market} ·{' '}
+                            {selected.strategyScope}
+                          </p>
+                        </div>
+                        <button
+                          className="lab-secondary-button"
+                          onClick={toggleStatus}
+                        >
+                          {selected.status === '运行中' ? (
+                            <>
+                              <Pause size={14} /> 暂停实验
+                            </>
+                          ) : (
+                            <>
+                              <Play size={14} /> 继续实验
+                            </>
+                          )}
+                        </button>
                       </div>
-                      <small>非未来预测</small>
+
+                      <div className="experiment-kpis">
+                        <div>
+                          <span>初始资产</span>
+                          <b>¥{money(selected.initialValue)}</b>
+                        </div>
+                        <div>
+                          <span>当前资产</span>
+                          <b>¥{money(selected.currentValue)}</b>
+                        </div>
+                        <div>
+                          <span>累计收益率</span>
+                          <b
+                            className={
+                              selected.currentValue >= selected.initialValue
+                                ? 'up'
+                                : 'down'
+                            }
+                          >
+                            {selected.initialValue
+                              ? `${(((selected.currentValue - selected.initialValue) / selected.initialValue) * 100).toFixed(2)}%`
+                              : '—'}
+                          </b>
+                        </div>
+                      </div>
                     </div>
-                    <ExperimentCandlestickChart channel={selected} />
-                  </div>
+
+                    <div className="experiment-chart-card">
+                      <div className="lab-card-heading">
+                        <div>
+                          <span>实验净值 K 线</span>
+                          <b>日 K · 历史净值</b>
+                        </div>
+                        <small>非未来预测</small>
+                      </div>
+                      <ExperimentCandlestickChart
+                        key={selected.id}
+                        channel={selected}
+                      />
+                    </div>
+                  </section>
 
                   <div className="experiment-detail-columns">
                     <section className="experiment-assets">
@@ -962,7 +1095,16 @@ export function LabDashboard() {
                           <span>初始资产</span>
                           <b>{experimentAssetMode(selected)}</b>
                         </div>
-                        <small>¥{money(experimentTotal(selected))}</small>
+                        <div className="experiment-asset-heading-actions">
+                          <small>¥{money(experimentTotal(selected))}</small>
+                          <button
+                            type="button"
+                            className="experiment-asset-edit-button"
+                            onClick={openAssetEditor}
+                          >
+                            <Pencil size={13} aria-hidden="true" /> 管理资产
+                          </button>
+                        </div>
                       </div>
                       <div className="experiment-asset-list">
                         {selected.assets.map((asset) => (
@@ -1028,6 +1170,114 @@ export function LabDashboard() {
           </footer>
         </main>
       </div>
+
+      <Dialog
+        open={assetEditorOpen}
+        onOpenChange={(open) => {
+          setAssetEditorOpen(open);
+          if (!open) setAssetEditorError('');
+        }}
+      >
+        <DialogContent className="owl-dialog experiment-asset-dialog">
+          <DialogTitle>管理初始资产</DialogTitle>
+          <DialogDescription>
+            编辑当前实验通道的现金与持仓。保存后会按新合计重算初始资产，并保留已有盈亏金额。
+          </DialogDescription>
+
+          <div className="experiment-asset-editor-list">
+            {assetDrafts.map((asset, index) => (
+              <fieldset className="experiment-asset-editor-row" key={asset.id}>
+                <legend>
+                  {asset.kind === 'cash' ? '现金资产' : '持仓资产'} {index + 1}
+                </legend>
+                <label>
+                  <span>资产名称</span>
+                  <input
+                    value={asset.name}
+                    onChange={(event) =>
+                      updateAssetDraft(asset.id, 'name', event.target.value)
+                    }
+                    placeholder={
+                      asset.kind === 'cash' ? '人民币现金' : '例如：沪深300 ETF'
+                    }
+                  />
+                </label>
+                {asset.kind === 'security' && (
+                  <label>
+                    <span>代码</span>
+                    <input
+                      value={asset.code ?? ''}
+                      onChange={(event) =>
+                        updateAssetDraft(asset.id, 'code', event.target.value)
+                      }
+                      placeholder="例如：510300"
+                    />
+                  </label>
+                )}
+                <label>
+                  <span>资产金额</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    inputMode="decimal"
+                    value={asset.amount}
+                    onChange={(event) =>
+                      updateAssetDraft(asset.id, 'amount', event.target.value)
+                    }
+                    placeholder="0"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="experiment-asset-delete-button"
+                  aria-label={`删除${asset.name || '此项资产'}`}
+                  onClick={() => {
+                    setAssetDrafts((current) =>
+                      current.filter((item) => item.id !== asset.id),
+                    );
+                    setAssetEditorError('');
+                  }}
+                >
+                  <Trash2 size={15} aria-hidden="true" /> 删除
+                </button>
+              </fieldset>
+            ))}
+          </div>
+
+          {assetEditorError && (
+            <p className="experiment-asset-editor-error" role="alert">
+              {assetEditorError}
+            </p>
+          )}
+
+          <div className="experiment-asset-add-actions">
+            <button type="button" onClick={() => addAssetDraft('cash')}>
+              <Plus size={14} aria-hidden="true" /> 增加现金
+            </button>
+            <button type="button" onClick={() => addAssetDraft('security')}>
+              <Plus size={14} aria-hidden="true" /> 增加持仓
+            </button>
+          </div>
+
+          <div className="lab-dialog-actions">
+            <button
+              type="button"
+              className="lab-secondary-button"
+              onClick={() => setAssetEditorOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="lab-primary-button"
+              onClick={saveAssetChanges}
+            >
+              保存资产
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={createOpen}

@@ -74,6 +74,7 @@ import {
   readCustomStrategies,
 } from '@/lib/investment-strategies';
 import { strategists } from '@/lib/strategists';
+import { recordAgentCreditUsage } from '@/lib/agent-credits';
 import { AppRail } from '@/components/app-rail';
 import {
   applyMarketSnapshot,
@@ -867,6 +868,17 @@ export default function Home() {
   }
   function ask(question: string) {
     if (pending || !question.trim()) return;
+    try {
+      recordAgentCreditUsage({
+        agentName: '组合分析 Agent',
+        feature: '投资工作台',
+        action: question.trim().slice(0, 80),
+        cost: 12,
+        status: '已完成',
+      });
+    } catch {
+      // The assistant stays available if local usage history cannot be written.
+    }
     setChatOpen(true);
     setMessages((m) => [...m, { role: 'user', text: question.trim() }]);
     setInput('');

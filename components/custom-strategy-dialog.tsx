@@ -24,6 +24,7 @@ import {
   readCustomStrategies,
   type CustomStrategy,
 } from '@/lib/investment-strategies';
+import { recordAgentCreditUsage } from '@/lib/agent-credits';
 
 type AgentInputMode = 'text' | 'voice' | 'document';
 
@@ -113,14 +114,28 @@ export function CustomStrategyDialog({
       return;
     }
     try {
-      setDraft(
-        generateCustomStrategy(
-          name.trim() || inferStrategyName(description),
-          description,
-        ),
-      );
+      const strategyName = name.trim() || inferStrategyName(description);
+      setDraft(generateCustomStrategy(strategyName, description));
+      recordAgentCreditUsage({
+        agentName: 'OwlMate 策略 Agent',
+        feature: context === 'market' ? '策略广场' : '新建实验',
+        action: `生成「${strategyName}」策略草案`,
+        cost: 48,
+        status: '已完成',
+      });
       setError('');
     } catch {
+      try {
+        recordAgentCreditUsage({
+          agentName: 'OwlMate 策略 Agent',
+          feature: context === 'market' ? '策略广场' : '新建实验',
+          action: '策略草案生成失败，未扣除积分',
+          cost: 0,
+          status: '失败',
+        });
+      } catch {
+        // Agent generation errors should remain visible even if local history cannot be written.
+      }
       setError('策略草案生成失败，请稍后重试。');
     }
   }

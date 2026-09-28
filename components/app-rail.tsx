@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   CircleHelp,
+  Coins,
   FlaskConical,
   LogIn,
   LogOut,
@@ -49,6 +50,7 @@ const items = [
     icon: FlaskConical,
   },
   { href: '/strategies', label: '策略广场', short: '策略广场', icon: Store },
+  { href: '/credits', label: '积分消耗', short: '积分消耗', icon: Coins },
 ] as const;
 
 function navigateWithPageLoad(
