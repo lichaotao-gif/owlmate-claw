@@ -4,7 +4,6 @@ import {
   createElement,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ImgHTMLAttributes,
 } from 'react';
@@ -14,21 +13,17 @@ import {
   ArrowRight,
   Check,
   Clock3,
-  FileText,
   Library,
   LockKeyhole,
-  Mic,
-  MicOff,
   Plus,
-  RotateCcw,
-  Search,
   ShieldCheck,
   Sparkles,
   Store,
-  Upload,
   Users,
 } from 'lucide-react';
 import { AppRail } from '@/components/app-rail';
+import { CustomStrategyDialog } from '@/components/custom-strategy-dialog';
+import { ThemeSelector } from '@/components/theme-selector';
 import {
   Dialog,
   DialogContent,
@@ -43,32 +38,11 @@ import {
 import {
   CUSTOM_STRATEGIES_EVENT,
   CUSTOM_STRATEGIES_KEY,
-  generateCustomStrategy,
   readCustomStrategies,
   type CustomStrategy,
 } from '@/lib/investment-strategies';
 
 type MarketFilter = '全部' | '免费' | '付费' | '稳健' | '轮动' | '成长';
-type AgentInputMode = 'text' | 'voice' | 'document';
-
-type SpeechRecognitionLike = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-};
-
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: ArrayLike<{
-    isFinal: boolean;
-    0: { transcript: string };
-  }>;
-};
 
 const marketFilters: MarketFilter[] = [
   '全部',
@@ -93,16 +67,6 @@ function matchesFilter(strategy: CommunityStrategy, filter: MarketFilter) {
   if (filter === '免费') return strategy.price === 0;
   if (filter === '付费') return strategy.price > 0;
   return strategy.tags.includes(filter);
-}
-
-function inferStrategyName(description: string) {
-  const firstLine = description
-    .split(/[\n。！？]/u)
-    .map((line) => line.trim())
-    .find(Boolean);
-  if (!firstLine) return '我的自定义策略';
-  const compact = firstLine.replace(/^[我想要做一个套的]+/u, '').trim();
-  return (compact || firstLine).slice(0, 18);
 }
 
 function StrategyCard({
@@ -258,17 +222,6 @@ export function StrategyMarketplace() {
   );
   const [notice, setNotice] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [draftName, setDraftName] = useState('');
-  const [draftDescription, setDraftDescription] = useState('');
-  const [agentInputMode, setAgentInputMode] = useState<AgentInputMode>('text');
-  const [generatedDraft, setGeneratedDraft] = useState<CustomStrategy | null>(
-    null,
-  );
-  const [createError, setCreateError] = useState('');
-  const [documentName, setDocumentName] = useState('');
-  const [isReadingDocument, setIsReadingDocument] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
     function load() {
@@ -284,13 +237,6 @@ export function StrategyMarketplace() {
     window.addEventListener(CUSTOM_STRATEGIES_EVENT, load);
     return () => window.removeEventListener(CUSTOM_STRATEGIES_EVENT, load);
   }, []);
-
-  useEffect(
-    () => () => {
-      recognitionRef.current?.stop();
-    },
-    [],
-  );
 
   const referencedIds = useMemo(
     () =>
@@ -344,132 +290,6 @@ export function StrategyMarketplace() {
     }
   }
 
-  function resetCreateAgent() {
-    recognitionRef.current?.stop();
-    recognitionRef.current = null;
-    setIsListening(false);
-    setDraftName('');
-    setDraftDescription('');
-    setGeneratedDraft(null);
-    setCreateError('');
-    setDocumentName('');
-    setAgentInputMode('text');
-  }
-
-  function generateStrategyDraft() {
-    if (draftDescription.trim().length < 12) {
-      setCreateError(
-        '请再多描述一些，至少包含适用资产、选择规则或风险控制中的一项。',
-      );
-      return;
-    }
-    try {
-      const name = draftName.trim() || inferStrategyName(draftDescription);
-      setGeneratedDraft(generateCustomStrategy(name, draftDescription));
-      setCreateError('');
-    } catch {
-      setCreateError('策略草案生成失败，请稍后重试。');
-    }
-  }
-
-  function saveGeneratedStrategy() {
-    if (!generatedDraft) return;
-    try {
-      persistStrategies([...customStrategies, generatedDraft]);
-      setCreateOpen(false);
-      setTab('mine');
-      setNotice(`「${generatedDraft.name}」已保存为我的策略。`);
-      resetCreateAgent();
-    } catch {
-      setCreateError('策略保存失败，请检查浏览器本地存储设置。');
-    }
-  }
-
-  function toggleVoiceInput() {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-    const speechWindow = window as typeof window & {
-      SpeechRecognition?: new () => SpeechRecognitionLike;
-      webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-    };
-    const Recognition =
-      speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
-    if (!Recognition) {
-      setCreateError(
-        '当前浏览器不支持语音转写，请使用 Chrome / Edge，或改用文字输入。',
-      );
-      return;
-    }
-    const recognition = new Recognition();
-    recognition.lang = 'zh-CN';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.onresult = (event) => {
-      let transcript = '';
-      for (
-        let index = event.resultIndex;
-        index < event.results.length;
-        index += 1
-      ) {
-        if (event.results[index].isFinal) {
-          transcript += event.results[index][0].transcript;
-        }
-      }
-      if (transcript) {
-        setDraftDescription((current) =>
-          `${current}${current ? '\n' : ''}${transcript}`.slice(0, 1200),
-        );
-      }
-    };
-    recognition.onerror = () => {
-      setCreateError('没有获取到语音，请检查麦克风权限后重试。');
-      setIsListening(false);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognitionRef.current = recognition;
-    setCreateError('');
-    setIsListening(true);
-    recognition.start();
-  }
-
-  async function readStrategyDocument(file: File | undefined) {
-    if (!file) return;
-    setCreateError('');
-    setGeneratedDraft(null);
-    setIsReadingDocument(true);
-    try {
-      const extension = file.name.split('.').pop()?.toLowerCase();
-      let content = '';
-      if (extension === 'docx') {
-        const mammoth = await import('mammoth');
-        const result = await mammoth.extractRawText({
-          arrayBuffer: await file.arrayBuffer(),
-        });
-        content = result.value;
-      } else if (extension === 'txt' || extension === 'md') {
-        content = await file.text();
-      } else {
-        throw new Error('unsupported');
-      }
-      const cleaned = content.trim().slice(0, 1200);
-      if (!cleaned) throw new Error('empty');
-      setDocumentName(file.name);
-      setDraftDescription(cleaned);
-      if (!draftName.trim()) {
-        setDraftName(file.name.replace(/\.(docx|txt|md)$/iu, '').slice(0, 40));
-      }
-    } catch {
-      setDocumentName('');
-      setCreateError(
-        '文档未能读取。请上传 .docx、.txt 或 .md 文件，并确认文件中有可读取的文字。',
-      );
-    } finally {
-      setIsReadingDocument(false);
-    }
-  }
-
   function showAll(filterValue: MarketFilter) {
     setQuery('');
     setFilter(filterValue);
@@ -482,13 +302,11 @@ export function StrategyMarketplace() {
 
   function openInSimulation(strategy: CustomStrategy) {
     try {
-      const raw = localStorage.getItem('owlmate-strategies-v1');
-      const previous = raw ? JSON.parse(raw) : {};
       localStorage.setItem(
-        'owlmate-strategies-v1',
-        JSON.stringify({ ...previous, portfolio: strategy.id }),
+        'owlmate-new-experiment-strategy',
+        JSON.stringify({ id: strategy.id, name: strategy.name }),
       );
-      window.location.assign('/#simulation');
+      window.location.assign('/holdings?create=1');
     } catch {
       setNotice('暂时无法载入该策略，请稍后重试。');
     }
@@ -520,9 +338,10 @@ export function StrategyMarketplace() {
               {communityStrategies.length} 个社区策略 ·{' '}
               {customStrategies.length} 个已入库
             </span>
-            <Link href="/" className="back-cockpit">
-              <ArrowLeft size={14} /> 返回驾驶舱
+            <Link href="/holdings" className="back-cockpit">
+              <ArrowLeft size={14} /> 返回实验室
             </Link>
+            <ThemeSelector />
           </div>
         </header>
 
@@ -537,7 +356,7 @@ export function StrategyMarketplace() {
                 <span className="heading-dot" />
               </h1>
               <p>
-                发现社区用户贡献的投资规则，把适合自己的策略引用到个人策略库中。
+                发现社区贡献的量化规则，把适合自己的策略放进独立实验中验证。
               </p>
             </div>
             <button
@@ -614,10 +433,10 @@ export function StrategyMarketplace() {
               <aside className="strategy-community-note">
                 <ShieldCheck size={18} />
                 <div>
-                  <b>平台不提供投资策略，广场内容均以社区用户身份贡献</b>
+                  <b>平台不提供操作建议，广场内容均以社区研究规则展示</b>
                   <p>
-                    OwlMate 只提供规则整理、引用和情景推演能力。Beta
-                    期间的社区身份与策略内容包含演示数据，所有策略均不构成投资建议。
+                    OwlMate 只提供规则整理和虚拟仿真能力。Beta
+                    期间的社区身份与策略内容包含演示数据，不连接真实账户。
                   </p>
                 </div>
               </aside>
@@ -626,16 +445,6 @@ export function StrategyMarketplace() {
                 className="strategy-market-toolbar"
                 id="strategy-market-toolbar"
               >
-                <label>
-                  <Search size={15} />
-                  <span className="sr-only">搜索策略、作者或标签</span>
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="搜索策略、作者或标签"
-                  />
-                </label>
                 <div aria-label="策略筛选">
                   {marketFilters.map((item) => (
                     <button
@@ -757,7 +566,7 @@ export function StrategyMarketplace() {
                             : '保存在当前浏览器'}
                         </small>
                         <button onClick={() => openInSimulation(strategy)}>
-                          用于情景推演 <ArrowRight size={14} />
+                          创建策略实验 <ArrowRight size={14} />
                         </button>
                       </div>
                     </article>
@@ -776,7 +585,7 @@ export function StrategyMarketplace() {
 
           <footer className="page-footer strategy-market-footer">
             <span>
-              <ShieldCheck size={12} /> 社区规则仅用于分析与推演，不连接真实交易
+              <ShieldCheck size={12} /> 社区规则仅用于科研与仿真，不连接真实交易
             </span>
             <span>OwlMate / Strategies by the community.</span>
           </footer>
@@ -880,216 +689,22 @@ export function StrategyMarketplace() {
                 </button>
               </div>
               <p className="market-detail-note">
-                由社区用户贡献，仅用于规则记录、组合分析与情景推演，不构成投资建议。
+                由社区用户贡献，仅用于规则记录与虚拟仿真，不构成操作建议。
               </p>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <CustomStrategyDialog
         open={createOpen}
-        onOpenChange={(open) => {
-          setCreateOpen(open);
-          if (!open) resetCreateAgent();
+        onOpenChange={setCreateOpen}
+        context="market"
+        onCreated={(strategy) => {
+          setTab('mine');
+          setNotice(`「${strategy.name}」已保存为我的策略。`);
         }}
-      >
-        <DialogContent className="owl-dialog strategy-create-dialog">
-          <DialogTitle>OwlMate 策略 Agent</DialogTitle>
-          <DialogDescription>
-            说出、写下或导入你的想法，Agent 会整理成可复核的个人策略。
-          </DialogDescription>
-          {!generatedDraft ? (
-            <div className="strategy-agent-create">
-              <div className="strategy-agent-input-panel">
-                <label>
-                  策略名称 <small>可选，Agent 可自动起名</small>
-                  <input
-                    value={draftName}
-                    maxLength={40}
-                    onChange={(event) => setDraftName(event.target.value)}
-                    placeholder="例如：我的稳健轮动"
-                  />
-                </label>
-                <label>
-                  {agentInputMode === 'voice'
-                    ? '口述转写'
-                    : agentInputMode === 'document'
-                      ? '文档内容'
-                      : '我的策略想法'}
-                  <textarea
-                    value={draftDescription}
-                    maxLength={1200}
-                    onChange={(event) => {
-                      setDraftDescription(event.target.value);
-                      setGeneratedDraft(null);
-                    }}
-                    placeholder="例如：从沪深300、纳指和黄金 ETF 中选最强的两个，每周调整；回撤超过 12% 时降低仓位……"
-                  />
-                  <small>{draftDescription.length} / 1200</small>
-                </label>
-
-                <div
-                  className="strategy-agent-modes"
-                  aria-label="选择策略输入方式"
-                >
-                  <button
-                    aria-pressed={agentInputMode === 'text'}
-                    onClick={() => setAgentInputMode('text')}
-                  >
-                    <FileText size={16} />
-                    <span>
-                      <b>文字描述</b>
-                      <small>直接编辑上方内容</small>
-                    </span>
-                  </button>
-                  <button
-                    aria-pressed={agentInputMode === 'voice'}
-                    onClick={() => setAgentInputMode('voice')}
-                  >
-                    <Mic size={16} />
-                    <span>
-                      <b>语音口述</b>
-                      <small>转写到上方输入框</small>
-                    </span>
-                  </button>
-                  <button
-                    aria-pressed={agentInputMode === 'document'}
-                    onClick={() => setAgentInputMode('document')}
-                  >
-                    <Upload size={16} />
-                    <span>
-                      <b>导入文档</b>
-                      <small>提取到上方输入框</small>
-                    </span>
-                  </button>
-                </div>
-
-                {agentInputMode === 'voice' && (
-                  <div className="strategy-agent-voice">
-                    <button
-                      className={isListening ? 'is-listening' : ''}
-                      onClick={toggleVoiceInput}
-                    >
-                      {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-                      {isListening ? '停止录入' : '开始口述'}
-                    </button>
-                    <span>
-                      {isListening
-                        ? '正在聆听，你可以说适用资产、买入条件和止损规则……'
-                        : '首次使用时浏览器会请求麦克风权限。'}
-                    </span>
-                  </div>
-                )}
-
-                {agentInputMode === 'document' && (
-                  <label className="strategy-agent-upload">
-                    <Upload size={20} />
-                    <span>
-                      <b>
-                        {isReadingDocument
-                          ? '正在读取文档……'
-                          : documentName || '选择策略文档'}
-                      </b>
-                      <small>支持 .docx、.txt 和 .md，单个文件</small>
-                    </span>
-                    <input
-                      type="file"
-                      accept=".docx,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
-                      disabled={isReadingDocument}
-                      onChange={(event) =>
-                        void readStrategyDocument(event.target.files?.[0])
-                      }
-                    />
-                  </label>
-                )}
-              </div>
-
-              {createError && (
-                <p className="strategy-agent-error" role="alert">
-                  {createError}
-                </p>
-              )}
-              <div className="strategy-agent-privacy">
-                <ShieldCheck size={15} />
-                <span>
-                  文档只在浏览器内读取，不会上传到
-                  OwlMate；语音转写由浏览器提供，是否联网取决于浏览器。策略只保存到本地策略库。
-                </span>
-              </div>
-              <button
-                className="strategy-create-submit"
-                onClick={generateStrategyDraft}
-                disabled={isReadingDocument}
-              >
-                <Sparkles size={15} /> 让 Agent 生成策略草案
-              </button>
-            </div>
-          ) : (
-            <div className="strategy-agent-preview">
-              <div className="strategy-agent-preview-heading">
-                <span>
-                  <Sparkles size={14} /> AGENT DRAFT
-                </span>
-                <h3>{generatedDraft.name}</h3>
-                <p>{generatedDraft.summary}</p>
-                <div>
-                  {generatedDraft.tags.map((tag) => (
-                    <small key={tag}>{tag}</small>
-                  ))}
-                </div>
-              </div>
-              <div className="strategy-agent-preview-facts">
-                <span>
-                  <small>适用资产</small>
-                  <b>{generatedDraft.assetScope}</b>
-                </span>
-                <span>
-                  <small>复核与调仓</small>
-                  <b>{generatedDraft.rebalance}</b>
-                </span>
-              </div>
-              <div className="strategy-agent-preview-rules">
-                <section>
-                  <h4>候选与入场规则</h4>
-                  {generatedDraft.entryRules.map((rule) => (
-                    <p key={rule}>{rule}</p>
-                  ))}
-                </section>
-                <section>
-                  <h4>风险控制</h4>
-                  {generatedDraft.riskControls.map((rule) => (
-                    <p key={rule}>{rule}</p>
-                  ))}
-                </section>
-              </div>
-              {createError && (
-                <p className="strategy-agent-error" role="alert">
-                  {createError}
-                </p>
-              )}
-              <p className="strategy-agent-boundary">
-                请检查关键条件。Agent
-                只整理规则，不评判收益，也不会自动交易或发布到市场。
-              </p>
-              <div className="strategy-agent-preview-actions">
-                <button
-                  className="market-card-secondary"
-                  onClick={() => setGeneratedDraft(null)}
-                >
-                  <RotateCcw size={14} /> 返回修改
-                </button>
-                <button
-                  className="strategy-create-submit"
-                  onClick={saveGeneratedStrategy}
-                >
-                  <Check size={15} /> 保存到我的策略
-                </button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { FeatureWorkspace } from '@/components/feature-workspace';
+import { LabDashboard } from '@/components/lab-dashboard';
 
 export default function HoldingsPage() {
-  return <FeatureWorkspace section="holdings" />;
+  return <LabDashboard />;
 }

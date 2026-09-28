@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { AppRail } from '@/components/app-rail';
+import { ThemeSelector } from '@/components/theme-selector';
 import {
   Dialog,
   DialogContent,
@@ -81,6 +82,7 @@ export default function StrategistsPage() {
               <ArrowLeft size={14} />
               返回驾驶舱
             </Link>
+            <ThemeSelector />
           </div>
         </header>
         <div className="strategist-main">

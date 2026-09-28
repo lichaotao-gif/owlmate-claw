@@ -4,17 +4,13 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Bookmark,
-  CircleGauge,
   CircleHelp,
-  LayoutDashboard,
+  FlaskConical,
   LogIn,
   LogOut,
-  Radio,
   ShieldCheck,
   Store,
   UserRound,
-  Wallet,
 } from 'lucide-react';
 import { OwlLogo } from '@/components/owl-logo';
 import { initialAccount, parseAccount } from '@/lib/holdings';
@@ -46,17 +42,13 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const items = [
-  { href: '/', label: '投资驾驶舱', short: '驾驶舱', icon: LayoutDashboard },
-  { href: '/holdings', label: '我的持仓', short: '我的持仓', icon: Wallet },
   {
-    href: '/zones',
-    label: '持仓区间雷达',
-    short: '区间雷达',
-    icon: CircleGauge,
+    href: '/holdings',
+    label: 'OwlMate 实验室',
+    short: '实验通道',
+    icon: FlaskConical,
   },
   { href: '/strategies', label: '策略广场', short: '策略广场', icon: Store },
-  { href: '/events', label: '事件雷达', short: '事件雷达', icon: Radio },
-  { href: '/plans', label: '我的模拟方案', short: '我的方案', icon: Bookmark },
 ] as const;
 
 function navigateWithPageLoad(
@@ -114,20 +106,17 @@ export function AppRail() {
   return (
     <nav className="icon-rail" aria-label="主要功能">
       <Link
-        href="/"
+        href="/holdings"
         className="brand-symbol"
-        aria-label="OwlMate 首页"
-        onClick={(event) => navigateWithPageLoad(event, '/')}
+        aria-label="OwlMate 实验室"
+        onClick={(event) => navigateWithPageLoad(event, '/holdings')}
       >
         <OwlLogo />
       </Link>
       <div className="rail-links">
         {items.map((item) => {
           const Icon = item.icon;
-          const active =
-            item.href === '/'
-              ? pathname === '/'
-              : pathname.startsWith(item.href);
+          const active = pathname.startsWith(item.href);
           const linkProps = {
             className: `rail-item${active ? ' active' : ''}`,
             'aria-label': item.label,

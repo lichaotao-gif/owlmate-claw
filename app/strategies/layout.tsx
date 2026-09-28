@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: '策略广场 · OwlMate',
-  description: '发现社区用户贡献的投资策略，并引用到自己的策略库。',
+  description: '发现社区贡献的量化研究规则，并放进独立实验中验证。',
 };
 
 export default function StrategiesLayout({

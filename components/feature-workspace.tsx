@@ -24,6 +24,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { OnboardingDemo } from '@/components/onboarding-demo';
+import { ThemeSelector } from '@/components/theme-selector';
 import { useInvestorProfile } from '@/lib/profile-store';
 import { AppRail } from '@/components/app-rail';
 import { HoldingsPanel } from '@/components/holdings-panel';
@@ -141,6 +142,7 @@ function FeatureHeader() {
         <Link className="feature-home-link" href="/">
           <ArrowLeft size={14} /> 返回首页
         </Link>
+        <ThemeSelector />
       </div>
     </header>
   );
