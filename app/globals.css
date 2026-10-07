@@ -471,6 +471,7 @@ button {
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
   gap: 16px;
   align-items: start;
+  transition: grid-template-columns 180ms ease;
 }
 .experiment-list-panel,
 .experiment-visual-panel {
@@ -510,6 +511,67 @@ button {
   border-radius: 9px;
   background: #272232;
   color: #cbb6ff;
+}
+.experiment-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.experiment-list-actions .experiment-channel-collapse {
+  color: #9da2b5;
+  background: transparent;
+  border: 1px solid #343744;
+}
+.experiment-list-actions .experiment-channel-collapse:hover,
+.experiment-list-actions .experiment-channel-collapse:focus-visible {
+  color: #e5dcfa;
+  border-color: #65537e;
+  background: #24202e;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lab-content-grid {
+    transition: none;
+  }
+}
+@media (min-width: 1081px) {
+  .lab-content-grid.channels-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .channels-collapsed .experiment-list-panel .lab-section-heading {
+    min-height: 62px;
+    justify-content: center;
+    padding: 10px;
+  }
+  .channels-collapsed
+    .experiment-list-panel
+    .lab-section-heading
+    > div:first-child,
+  .channels-collapsed .lab-add-channel-button {
+    display: none;
+  }
+  .channels-collapsed .experiment-list {
+    padding: 7px;
+  }
+  .channels-collapsed .experiment-card {
+    min-height: 54px;
+    display: grid;
+    place-items: center;
+    padding: 8px;
+  }
+  .channels-collapsed .experiment-card-top,
+  .channels-collapsed .experiment-card-title > div,
+  .channels-collapsed .experiment-card-value,
+  .channels-collapsed .experiment-card-meta,
+  .channels-collapsed .experiment-card-arrow {
+    display: none;
+  }
+  .channels-collapsed .experiment-card-title {
+    margin: 0;
+  }
+  .channels-collapsed .experiment-card-title > span {
+    width: 38px;
+    height: 38px;
+  }
 }
 .experiment-list {
   padding: 8px;
@@ -673,7 +735,7 @@ button {
 }
 .experiment-kpis {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr)) repeat(2, minmax(0, 0.82fr));
   border: 1px solid #2b2e3a;
   border-radius: 11px;
   overflow: hidden;
@@ -692,8 +754,78 @@ button {
   color: #85889a;
   font-size: 11px;
 }
+.experiment-kpi-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.experiment-metric-help {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  flex: 0 0 20px;
+  place-items: center;
+  padding: 0;
+  color: #9890ad;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.experiment-metric-help:hover,
+.experiment-metric-help:focus-visible,
+.experiment-metric-help[data-popup-open] {
+  color: #d5c7f6;
+  border-color: #4a405f;
+  background: #272132;
+  outline: none;
+}
+.experiment-metric-popover {
+  width: min(280px, calc(100vw - 24px));
+  gap: 10px !important;
+  padding: 14px !important;
+  color: #e8e3f0 !important;
+  border: 1px solid #50435f;
+  background: #211d2a !important;
+  box-shadow: 0 16px 40px #07070b73 !important;
+}
+.experiment-metric-popover [data-slot='popover-title'] {
+  font-size: 14px;
+  font-weight: 700;
+}
+.experiment-metric-popover [data-slot='popover-description'] {
+  color: #aaa3b8;
+  line-height: 1.6;
+}
+.experiment-metric-reading {
+  padding: 9px 10px;
+  border: 1px solid #373043;
+  border-radius: 8px;
+  background: #191720;
+}
+.experiment-metric-reading b {
+  color: #cbb9f7;
+  font-size: 10px;
+}
+.experiment-metric-reading p {
+  margin-top: 3px;
+  color: #c4becd;
+  font-size: 11px;
+  line-height: 1.55;
+}
+.experiment-metric-popover > small {
+  color: #817a8d;
+  font-size: 9px;
+}
 .experiment-kpis b {
   font-size: 19px;
+}
+.experiment-kpis small {
+  color: #666b7d;
+  font-size: 9px;
+}
+.experiment-kpis .experiment-kpi-risk {
+  background: #191723;
 }
 .experiment-assets,
 .experiment-log {
@@ -777,6 +909,33 @@ button {
   align-items: center;
   gap: 5px;
 }
+.lab-trade-code-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.lab-trade-code-legend span {
+  gap: 3px;
+}
+.lab-trade-code-legend b {
+  min-width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  color: #17131d;
+  border-radius: 50%;
+  font-size: 8px;
+  line-height: 1;
+}
+.lab-trade-code-legend .signal-b {
+  background: #79d7bf;
+}
+.lab-trade-code-legend .signal-s {
+  background: #f1a7ae;
+}
+.lab-trade-code-legend .signal-r {
+  background: #b99aff;
+}
 .lab-chart-legend i {
   width: 8px;
   height: 8px;
@@ -791,6 +950,19 @@ button {
 .lab-chart-legend i.trade {
   background: #b99aff;
   border-radius: 50%;
+}
+.lab-chart-legend i.portfolio-line,
+.lab-chart-legend i.benchmark-line {
+  width: 14px;
+  height: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.lab-chart-legend i.portfolio-line {
+  border-top: 2px solid #aa8cff;
+}
+.lab-chart-legend i.benchmark-line {
+  border-top: 2px dashed #6fc7bb;
 }
 .lab-chart-legend em {
   margin-left: auto;
@@ -862,6 +1034,50 @@ button {
 }
 .lab-candle.bear .volume {
   fill: #55c6a9;
+}
+.lab-net-area {
+  fill: url('#lab-net-area-gradient');
+}
+.lab-net-line,
+.lab-net-benchmark {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.lab-net-line {
+  stroke: #aa8cff;
+  stroke-width: 2.2;
+}
+.lab-net-line.cash {
+  stroke: #8f96a9;
+  stroke-width: 1.8;
+}
+.lab-net-benchmark {
+  stroke: #6fc7bb;
+  stroke-width: 1.4;
+  stroke-dasharray: 6 5;
+  opacity: 0.9;
+}
+.lab-net-current-point {
+  fill: #aa8cff;
+  stroke: #171922;
+  stroke-width: 1.5;
+}
+.lab-net-trade-marker circle {
+  fill: #b99aff;
+  stroke: #171922;
+  stroke-width: 1.5;
+}
+.lab-net-trade-marker.signal-b circle {
+  fill: #79d7bf;
+}
+.lab-net-trade-marker.signal-s circle {
+  fill: #f1a7ae;
+}
+.lab-net-trade-marker text {
+  fill: #17131d;
+  font-size: 7px;
+  font-weight: 800;
+  text-anchor: middle;
 }
 .lab-trade-marker circle {
   fill: #b99aff;
@@ -939,6 +1155,12 @@ button {
 }
 .lab-k-tooltip dl > div:last-child {
   grid-column: span 2;
+}
+.lab-net-tooltip dl {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.lab-net-tooltip dl > div:last-child {
+  grid-column: auto;
 }
 .lab-k-trade-detail {
   display: grid;
@@ -1030,30 +1252,99 @@ button {
   grid-column: 2;
   color: #797d90;
 }
-.experiment-log-row {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  gap: 10px;
-  padding: 11px 0;
-  border-top: 1px solid #292b36;
+.experiment-log-heading-meta {
+  display: flex !important;
+  align-items: center;
+  gap: 8px !important;
 }
-.experiment-log-row:first-of-type {
+.experiment-log-legend {
+  padding: 3px 7px;
+  color: #b9a6eb !important;
+  border: 1px solid #443a58;
+  border-radius: 999px;
+  background: #211d2c;
+  font-size: 9px !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.experiment-log-list {
   margin-top: 10px;
 }
-.experiment-log-row > i {
-  align-self: start;
-  color: #cdbdff;
+.experiment-log-row {
+  border-top: 1px solid #292b36;
+}
+.experiment-log-summary {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 2px;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.experiment-log-summary:hover,
+.experiment-log-summary:focus-visible {
+  background: #1b1d28;
+  outline: none;
+}
+.experiment-log-summary > i {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  color: #d8caff;
   background: #2d263e;
   border-radius: 6px;
-  padding: 4px 6px;
   text-align: center;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 750;
+}
+.experiment-log-summary > i.signal-b {
+  color: #79d7bf;
+  background: #18342e;
+}
+.experiment-log-summary > i.signal-s {
+  color: #f1a7ae;
+  background: #3a2028;
+}
+.experiment-log-summary > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+.experiment-log-summary > span b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.experiment-log-summary > svg {
+  color: #777b8c;
+  transition: transform 160ms ease;
+}
+.experiment-log-row.expanded .experiment-log-summary > svg {
+  transform: rotate(90deg);
+}
+.experiment-log-detail {
+  display: grid;
+  gap: 3px;
+  margin: 0 2px 9px 39px;
+  padding: 8px 10px;
+  border: 1px solid #302b3d;
+  border-radius: 7px;
+  background: #1b1923;
+}
+.experiment-log-detail p {
+  color: #bab4c8;
   font-size: 11px;
 }
-.experiment-log-row > div {
-  display: grid;
-}
-.experiment-log-row span,
-.experiment-log-row small {
+.experiment-log-summary small,
+.experiment-log-detail small {
   color: #838799;
 }
 .experiment-log-empty {
@@ -1572,6 +1863,9 @@ button {
   .experiment-list-panel {
     overflow: hidden;
   }
+  .experiment-channel-collapse {
+    display: none !important;
+  }
   .experiment-list {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -1635,13 +1929,18 @@ button {
     width: 100%;
   }
   .experiment-kpis {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .experiment-kpis div {
-    border-right: 0;
+    border-right: 1px solid #2b2e3a;
     border-bottom: 1px solid #2b2e3a;
   }
+  .experiment-kpis div:nth-child(2n) {
+    border-right: 0;
+  }
   .experiment-kpis div:last-child {
+    grid-column: 1 / -1;
+    border-right: 0;
     border-bottom: 0;
   }
   .experiment-detail-panel {
@@ -1751,6 +2050,21 @@ html[data-theme='light'] .lab-strategy-link {
 }
 html[data-theme='light'] .lab-strategy-link:hover {
   background: #ede9f8;
+}
+html[data-theme='light'] .experiment-list-actions .experiment-channel-collapse {
+  color: #62697a;
+  border-color: #d7dbe4;
+  background: #fff;
+}
+html[data-theme='light']
+  .experiment-list-actions
+  .experiment-channel-collapse:hover,
+html[data-theme='light']
+  .experiment-list-actions
+  .experiment-channel-collapse:focus-visible {
+  color: #6046ad;
+  border-color: #bdaee0;
+  background: #f0ecfa;
 }
 html[data-theme='light'] .lab-hero p,
 html[data-theme='light'] .lab-summary-grid span,
@@ -1879,6 +2193,46 @@ html[data-theme='light'] .experiment-kpis div {
   border-color: #dfe2ea;
   background: #f8f9fc;
 }
+html[data-theme='light'] .experiment-kpis .experiment-kpi-risk {
+  background: #f7f4fb;
+}
+html[data-theme='light'] .experiment-kpis small {
+  color: #7a7185;
+}
+html[data-theme='light'] .experiment-metric-help {
+  color: #776c88;
+}
+html[data-theme='light'] .experiment-metric-help:hover,
+html[data-theme='light'] .experiment-metric-help:focus-visible,
+html[data-theme='light'] .experiment-metric-help[data-popup-open] {
+  color: #5b409f;
+  border-color: #d4c9e8;
+  background: #eee9f7;
+}
+html[data-theme='light'] .experiment-metric-popover {
+  color: #252936 !important;
+  border-color: #d8d0e4;
+  background: #ffffff !important;
+  box-shadow: 0 16px 38px #2c23451f !important;
+}
+html[data-theme='light']
+  .experiment-metric-popover
+  [data-slot='popover-description'] {
+  color: #62697a;
+}
+html[data-theme='light'] .experiment-metric-reading {
+  border-color: #e0d9ea;
+  background: #f7f4fb;
+}
+html[data-theme='light'] .experiment-metric-reading b {
+  color: #6447ad;
+}
+html[data-theme='light'] .experiment-metric-reading p {
+  color: #4e5464;
+}
+html[data-theme='light'] .experiment-metric-popover > small {
+  color: #747b8b;
+}
 html[data-theme='light'] .experiment-chart-card {
   border-color: #dfe2ea;
   background: #fafbfe;
@@ -1985,9 +2339,33 @@ html[data-theme='light'] .lab-k-trade-detail p,
 html[data-theme='light'] .lab-k-trade-detail small {
   color: #5d6373;
 }
-html[data-theme='light'] .experiment-log-row > i {
+html[data-theme='light'] .experiment-log-legend {
+  color: #6549b7 !important;
+  border-color: #d7cceb;
+  background: #eee9f8;
+}
+html[data-theme='light'] .experiment-log-summary:hover,
+html[data-theme='light'] .experiment-log-summary:focus-visible {
+  background: #f3f1f8;
+}
+html[data-theme='light'] .experiment-log-summary > i {
   color: #6549b7;
   background: #e9e3f7;
+}
+html[data-theme='light'] .experiment-log-summary > i.signal-b {
+  color: #19735f;
+  background: #e2f4ef;
+}
+html[data-theme='light'] .experiment-log-summary > i.signal-s {
+  color: #aa3f4c;
+  background: #f9e7e9;
+}
+html[data-theme='light'] .experiment-log-detail {
+  border-color: #ded9e9;
+  background: #f7f4fa;
+}
+html[data-theme='light'] .experiment-log-detail p {
+  color: #4e5363;
 }
 html[data-theme='light'] .experiment-rule-note {
   color: #414758;

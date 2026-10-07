@@ -10,6 +10,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  CircleHelp,
   CircleDollarSign,
   FlaskConical,
   ListChecks,
@@ -35,6 +36,14 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   CUSTOM_STRATEGIES_EVENT,
   CUSTOM_STRATEGIES_KEY,
   investmentStrategies,
@@ -51,6 +60,7 @@ import {
   withSimulatedTradeHistory,
   type ExperimentAsset,
   type ExperimentChannel,
+  type ExperimentTrade,
   type InvestmentMarket,
 } from '@/lib/experiment-channels';
 
@@ -181,6 +191,116 @@ function makeCandleData(channel: ExperimentChannel): CandlePoint[] {
   });
 }
 
+function experimentRiskMetrics(channel: ExperimentChannel) {
+  const closes = makeCandleData(channel).map((candle) => candle.close);
+  const returns = closes.slice(1).map((close, index) => {
+    const previous = closes[index];
+    return previous ? close / previous - 1 : 0;
+  });
+  const mean = returns.reduce((sum, value) => sum + value, 0) / returns.length;
+  const variance =
+    returns.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+    Math.max(1, returns.length - 1);
+  const deviation = Math.sqrt(variance);
+  const sharpe = deviation ? (mean / deviation) * Math.sqrt(252) : 0;
+  let peak = closes[0] ?? 100;
+  let maxDrawdown = 0;
+
+  closes.forEach((close) => {
+    peak = Math.max(peak, close);
+    maxDrawdown = Math.min(maxDrawdown, close / peak - 1);
+  });
+
+  return {
+    sharpe,
+    maxDrawdown: maxDrawdown * 100,
+  };
+}
+
+function tradeCode(action: ExperimentTrade['action']) {
+  if (action === '买入') return 'B';
+  if (action === '卖出') return 'S';
+  return 'R';
+}
+
+type ExperimentChartMode = 'security' | 'portfolio' | 'cash';
+
+function experimentChartMode(channel: ExperimentChannel): ExperimentChartMode {
+  const securities = channel.assets.filter(
+    (asset) => asset.kind === 'security',
+  );
+  if (securities.length === 1 && channel.assets.length === 1) {
+    return 'security';
+  }
+  if (
+    securities.length === 0 &&
+    channel.trades.length === 0 &&
+    channel.currentValue === channel.initialValue
+  ) {
+    return 'cash';
+  }
+  return 'portfolio';
+}
+
+function experimentChartHeading(mode: ExperimentChartMode) {
+  if (mode === 'security') return '标的 K 线';
+  if (mode === 'cash') return '现金净值曲线';
+  return '组合净值曲线';
+}
+
+function compactTradeDetail(detail: string) {
+  return detail
+    .replaceAll('模拟重新买入', 'B')
+    .replaceAll('模拟买入', 'B')
+    .replaceAll('模拟建仓', 'B')
+    .replaceAll('买入', 'B')
+    .replaceAll('卖出部分', 'S')
+    .replaceAll('模拟减仓', 'S')
+    .replaceAll('卖出', 'S')
+    .replaceAll('减仓', 'S')
+    .replaceAll('转入', '切换至');
+}
+
+function MetricHelp({
+  title,
+  description,
+  reading,
+  align = 'center',
+}: {
+  title: string;
+  description: string;
+  reading: string;
+  align?: 'start' | 'center' | 'end';
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        type="button"
+        className="experiment-metric-help"
+        aria-label={`了解${title}`}
+      >
+        <CircleHelp size={12} aria-hidden="true" />
+      </PopoverTrigger>
+      <PopoverContent
+        className="experiment-metric-popover"
+        align={align}
+        side="bottom"
+        sideOffset={7}
+      >
+        <PopoverHeader>
+          <PopoverTitle>{title}</PopoverTitle>
+          <PopoverDescription>{description}</PopoverDescription>
+        </PopoverHeader>
+        <div className="experiment-metric-reading">
+          <b>怎么看</b>
+          <p>{reading}</p>
+        </div>
+        <small>当前为演示口径，基于模拟净值序列计算。</small>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function ExperimentCandlestickChart({
   channel,
 }: {
@@ -250,7 +370,7 @@ function ExperimentCandlestickChart({
           ))}
         </fieldset>
       </div>
-      <div className="lab-chart-legend" aria-hidden="true">
+      <div className="lab-chart-legend">
         <span>
           <i className="bull" />
           上涨
@@ -301,10 +421,6 @@ function ExperimentCandlestickChart({
             aria-hidden="true"
             focusable="false"
           >
-            <title>
-              {channel.name}
-              {rangeDescription}净值K线
-            </title>
             {priceTicks.map((tick) => (
               <g className="lab-k-grid" key={tick}>
                 <line
@@ -477,6 +593,349 @@ function ExperimentCandlestickChart({
   );
 }
 
+type NetValuePoint = CandlePoint & {
+  value: number;
+  benchmark?: number;
+};
+
+const demoBenchmarkReturns: Record<InvestmentMarket, number> = {
+  A股: 2.3,
+  港股: 1.4,
+  美股: 3.2,
+  ETF: 1.9,
+  期货: 0.8,
+  期权: -0.6,
+  数字货币: 4.6,
+};
+
+function ExperimentNetValueChart({
+  channel,
+  mode,
+}: {
+  channel: ExperimentChannel;
+  mode: Exclude<ExperimentChartMode, 'security'>;
+}) {
+  const allPoints = useMemo<NetValuePoint[]>(() => {
+    const candles = makeCandleData(channel);
+    const firstClose = candles[0]?.close || 100;
+    const benchmarkReturn = demoBenchmarkReturns[channel.market];
+    return candles.map((candle, index) => {
+      const progress = index / Math.max(1, candles.length - 1);
+      const value = mode === 'cash' ? 100 : (candle.close / firstClose) * 100;
+      const benchmark =
+        mode === 'cash'
+          ? undefined
+          : 100 + benchmarkReturn * progress + Math.sin(index * 0.38) * 0.24;
+      return { ...candle, value, benchmark };
+    });
+  }, [channel, mode]);
+  const [range, setRange] = useState<ChartRange>(30);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
+  const points = useMemo(() => allPoints.slice(-range), [allPoints, range]);
+  const rangeDescription =
+    range === 48 ? '全部 48 个交易日' : `近 ${range} 个交易日`;
+  const width = 760;
+  const height = 286;
+  const plot = { left: 48, right: 16, top: 18, bottom: 34 };
+  const plotWidth = width - plot.left - plot.right;
+  const plotHeight = height - plot.top - plot.bottom;
+  const values = points.flatMap((point) =>
+    point.benchmark === undefined
+      ? [point.value]
+      : [point.value, point.benchmark],
+  );
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const padding = Math.max((maxValue - minValue) * 0.14, 0.5);
+  const scaleMin = minValue - padding;
+  const scaleMax = maxValue + padding;
+  const xStep = plotWidth / Math.max(1, points.length - 1);
+  const x = (index: number) =>
+    points.length === 1 ? plot.left + plotWidth / 2 : plot.left + xStep * index;
+  const y = (value: number) =>
+    plot.top + ((scaleMax - value) / (scaleMax - scaleMin)) * plotHeight;
+  const linePath = (key: 'value' | 'benchmark') =>
+    points
+      .filter((point) => point[key] !== undefined)
+      .map(
+        (point, index) =>
+          `${index === 0 ? 'M' : 'L'} ${x(index).toFixed(2)} ${y(point[key] as number).toFixed(2)}`,
+      )
+      .join(' ');
+  const valuePath = linePath('value');
+  const areaPath = `${valuePath} L ${x(points.length - 1).toFixed(2)} ${(height - plot.bottom).toFixed(2)} L ${x(0).toFixed(2)} ${(height - plot.bottom).toFixed(2)} Z`;
+  const active = activeIndex === null ? null : points[activeIndex];
+  const activeX = activeIndex === null ? null : x(activeIndex);
+  const previousActive =
+    activeIndex === null || activeIndex === 0 ? null : points[activeIndex - 1];
+  const dailyReturn =
+    active && previousActive
+      ? ((active.value - previousActive.value) / previousActive.value) * 100
+      : 0;
+  const cumulativeReturn = active ? active.value - 100 : 0;
+  const valueTicks = Array.from(
+    { length: 5 },
+    (_, index) => scaleMax - ((scaleMax - scaleMin) * index) / 4,
+  );
+  const dateLabelStep = Math.max(1, Math.ceil(points.length / 6));
+
+  function selectFromPointer(clientX: number, target: HTMLElement) {
+    const bounds = target.getBoundingClientRect();
+    const svgX = ((clientX - bounds.left) / bounds.width) * width;
+    const next = Math.max(
+      0,
+      Math.min(
+        points.length - 1,
+        Math.round((svgX - plot.left) / Math.max(1, xStep)),
+      ),
+    );
+    setActiveIndex(next);
+  }
+
+  return (
+    <figure className="lab-candlestick lab-net-value-chart">
+      <div className="lab-chart-range-toolbar">
+        <span>{rangeDescription}</span>
+        <fieldset>
+          <legend className="sr-only">选择净值曲线展示周期</legend>
+          {chartRanges.map((item) => (
+            <button
+              type="button"
+              key={item}
+              aria-pressed={range === item}
+              className={range === item ? 'active' : ''}
+              onClick={() => {
+                setRange(item);
+                setActiveIndex(null);
+              }}
+            >
+              {chartRangeLabel(item)}
+            </button>
+          ))}
+        </fieldset>
+      </div>
+      <div className="lab-chart-legend" aria-hidden="true">
+        <span>
+          <i className="portfolio-line" />
+          {mode === 'cash' ? '现金净值' : '组合净值'}
+        </span>
+        {mode === 'portfolio' && (
+          <span>
+            <i className="benchmark-line" />
+            模拟基准
+          </span>
+        )}
+        {mode === 'portfolio' && (
+          <div
+            className="lab-trade-code-legend"
+            aria-label="策略操作代号：B 表示买入，S 表示卖出，R 表示调仓"
+          >
+            <span>
+              <b className="signal-b">B</b>买入
+            </span>
+            <span>
+              <b className="signal-s">S</b>卖出
+            </span>
+            <span>
+              <b className="signal-r">R</b>调仓
+            </span>
+          </div>
+        )}
+        <em>悬停或使用 ← → 查看详情</em>
+      </div>
+      <div className="lab-chart-surface">
+        <button
+          type="button"
+          className="lab-k-interaction"
+          aria-label={`${channel.name}${rangeDescription}${mode === 'cash' ? '现金' : '组合'}净值曲线。B 表示买入，S 表示卖出，R 表示调仓。聚焦后使用左右方向键查看每日净值。`}
+          onPointerMove={(event) =>
+            selectFromPointer(event.clientX, event.currentTarget)
+          }
+          onPointerDown={(event) =>
+            selectFromPointer(event.clientX, event.currentTarget)
+          }
+          onPointerLeave={() => setActiveIndex(null)}
+          onFocus={() =>
+            setActiveIndex((current) => current ?? points.length - 1)
+          }
+          onBlur={() => setActiveIndex(null)}
+          onKeyDown={(event) => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            event.preventDefault();
+            setActiveIndex((current) => {
+              const start = current ?? points.length - 1;
+              return Math.max(
+                0,
+                Math.min(
+                  points.length - 1,
+                  start + (event.key === 'ArrowRight' ? 1 : -1),
+                ),
+              );
+            });
+          }}
+        >
+          <svg
+            viewBox={`0 0 ${width} ${height}`}
+            aria-hidden="true"
+            focusable="false"
+          >
+            <defs>
+              <linearGradient
+                id="lab-net-area-gradient"
+                x1="0"
+                x2="0"
+                y1="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor="#a98bff" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#a98bff" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {valueTicks.map((tick) => (
+              <g className="lab-k-grid" key={tick}>
+                <line
+                  x1={plot.left}
+                  x2={width - plot.right}
+                  y1={y(tick)}
+                  y2={y(tick)}
+                />
+                <text x={plot.left - 7} y={y(tick) + 3}>
+                  {tick.toFixed(1)}
+                </text>
+              </g>
+            ))}
+            {points.length > 1 && (
+              <path className="lab-net-area" d={areaPath} />
+            )}
+            {mode === 'portfolio' && (
+              <path className="lab-net-benchmark" d={linePath('benchmark')} />
+            )}
+            <path
+              className={`lab-net-line${mode === 'cash' ? ' cash' : ''}`}
+              d={valuePath}
+            />
+            {points.length === 1 && (
+              <circle
+                className="lab-net-current-point"
+                cx={x(0)}
+                cy={y(points[0].value)}
+                r="4"
+              />
+            )}
+            {mode === 'portfolio' &&
+              points.map(
+                (point, index) =>
+                  point.trade && (
+                    <g
+                      className={`lab-net-trade-marker signal-${tradeCode(point.trade.action).toLowerCase()}`}
+                      key={`${point.dateKey}-${point.trade.id}`}
+                    >
+                      <circle cx={x(index)} cy={y(point.value)} r="7" />
+                      <text x={x(index)} y={y(point.value) + 3}>
+                        {tradeCode(point.trade.action)}
+                      </text>
+                    </g>
+                  ),
+              )}
+            {points
+              .filter(
+                (_, index) =>
+                  index % dateLabelStep === 0 || index === points.length - 1,
+              )
+              .map((point) => {
+                const index = points.indexOf(point);
+                return (
+                  <text
+                    className="lab-k-date"
+                    x={x(index)}
+                    y={height - 8}
+                    key={point.dateKey}
+                  >
+                    {point.dateKey}
+                  </text>
+                );
+              })}
+            {active && activeX !== null && (
+              <g className="lab-crosshair" aria-hidden="true">
+                <line
+                  x1={activeX}
+                  x2={activeX}
+                  y1={plot.top}
+                  y2={height - plot.bottom}
+                />
+                <line
+                  x1={plot.left}
+                  x2={width - plot.right}
+                  y1={y(active.value)}
+                  y2={y(active.value)}
+                />
+                <circle cx={activeX} cy={y(active.value)} r="3.5" />
+              </g>
+            )}
+          </svg>
+        </button>
+        {active && activeIndex !== null && (
+          <output
+            className={`lab-k-tooltip lab-net-tooltip${activeIndex > points.length * 0.64 ? ' align-right' : ''}`}
+            style={{ left: `${(x(activeIndex) / width) * 100}%` }}
+          >
+            <div className="lab-k-tooltip-heading">
+              <b>
+                {active.date.toLocaleDateString('zh-CN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  weekday: 'short',
+                })}
+              </b>
+              <span className={dailyReturn >= 0 ? 'up' : 'down'}>
+                {dailyReturn >= 0 ? '+' : ''}
+                {dailyReturn.toFixed(2)}%
+              </span>
+            </div>
+            <dl>
+              <div>
+                <dt>{mode === 'cash' ? '现金净值' : '组合净值'}</dt>
+                <dd>{active.value.toFixed(2)}</dd>
+              </div>
+              <div>
+                <dt>累计收益</dt>
+                <dd>
+                  {cumulativeReturn >= 0 ? '+' : ''}
+                  {cumulativeReturn.toFixed(2)}%
+                </dd>
+              </div>
+              {active.benchmark !== undefined && (
+                <div>
+                  <dt>模拟基准</dt>
+                  <dd>{active.benchmark.toFixed(2)}</dd>
+                </div>
+              )}
+            </dl>
+            {active.trade ? (
+              <div className="lab-k-trade-detail">
+                <span>{tradeCode(active.trade.action)}</span>
+                <b>{active.trade.asset}</b>
+                <p>{compactTradeDetail(active.trade.detail)}</p>
+                <small>{active.trade.reason}</small>
+              </div>
+            ) : (
+              <p className="lab-k-no-trade">
+                {mode === 'cash' ? '现金通道尚未建仓' : '当日无策略操作'}
+              </p>
+            )}
+          </output>
+        )}
+      </div>
+      <figcaption>
+        {mode === 'cash'
+          ? '现金通道尚未建仓；净值以实验初始日为 100。'
+          : '组合净值以实验初始日为 100；实线为组合，虚线为模拟基准。B 表示买入，S 表示卖出，R 表示调仓。'}
+      </figcaption>
+    </figure>
+  );
+}
+
 function ExperimentCard({
   channel,
   active,
@@ -496,6 +955,8 @@ function ExperimentCard({
       className={`experiment-card${active ? ' active' : ''}`}
       onClick={onSelect}
       aria-pressed={active}
+      aria-label={`${channel.name}，策略：${channel.strategyName}，当前实验资产 ¥${money(channel.currentValue)}`}
+      title={`${channel.name} · ${channel.strategyName}`}
     >
       <div className="experiment-card-top">
         <span
@@ -549,11 +1010,13 @@ export function LabDashboard() {
   const [step, setStep] = useState(0);
   const [notice, setNotice] = useState('');
   const [newUserDemo, setNewUserDemo] = useState(false);
+  const [channelsCollapsed, setChannelsCollapsed] = useState(false);
   const [assetEditorOpen, setAssetEditorOpen] = useState(false);
   const [assetDrafts, setAssetDrafts] = useState<DraftAsset[]>([]);
   const [assetEditorError, setAssetEditorError] = useState('');
   const [strategyEditorOpen, setStrategyEditorOpen] = useState(false);
   const [strategyDraftId, setStrategyDraftId] = useState('');
+  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [strategyId, setStrategyId] = useState('');
   const [market, setMarket] = useState<InvestmentMarket | ''>('');
@@ -642,6 +1105,11 @@ export function LabDashboard() {
   const selected =
     visibleChannels.find((channel) => channel.id === selectedId) ??
     visibleChannels[0];
+  const riskMetrics = useMemo(
+    () => (selected ? experimentRiskMetrics(selected) : null),
+    [selected],
+  );
+  const chartMode = selected ? experimentChartMode(selected) : 'portfolio';
   const switchableStrategies = selected
     ? [
         ...(strategies.some((strategy) => strategy.id === selected.strategyId)
@@ -1029,7 +1497,9 @@ export function LabDashboard() {
           )}
 
           {selected && (
-            <div className="lab-content-grid">
+            <div
+              className={`lab-content-grid${channelsCollapsed ? ' channels-collapsed' : ''}`}
+            >
               <section
                 className="experiment-list-panel"
                 aria-labelledby="experiment-list-title"
@@ -1039,14 +1509,37 @@ export function LabDashboard() {
                     <span>EXPERIMENT CHANNELS</span>
                     <h2 id="experiment-list-title">实验通道</h2>
                   </div>
-                  <button
-                    onClick={() => setCreateOpen(true)}
-                    aria-label="新建实验"
-                  >
-                    <Plus size={16} />
-                  </button>
+                  <div className="experiment-list-actions">
+                    <button
+                      className="lab-add-channel-button"
+                      onClick={() => setCreateOpen(true)}
+                      aria-label="新建实验"
+                      title="新建实验"
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                    </button>
+                    <button
+                      className="experiment-channel-collapse"
+                      type="button"
+                      aria-expanded={!channelsCollapsed}
+                      aria-controls="experiment-channel-list"
+                      aria-label={
+                        channelsCollapsed ? '展开实验通道' : '收起实验通道'
+                      }
+                      title={channelsCollapsed ? '展开通道' : '收起通道'}
+                      onClick={() =>
+                        setChannelsCollapsed((current) => !current)
+                      }
+                    >
+                      {channelsCollapsed ? (
+                        <ChevronRight size={17} aria-hidden="true" />
+                      ) : (
+                        <ChevronLeft size={17} aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
                 </div>
-                <div className="experiment-list">
+                <div className="experiment-list" id="experiment-channel-list">
                   {visibleChannels.map((channel) => (
                     <ExperimentCard
                       key={channel.id}
@@ -1116,7 +1609,14 @@ export function LabDashboard() {
                           <b>¥{money(selected.currentValue)}</b>
                         </div>
                         <div>
-                          <span>累计收益率</span>
+                          <span className="experiment-kpi-label">
+                            累计收益率
+                            <MetricHelp
+                              title="累计收益率"
+                              description="当前资产相对于初始资产的总变化比例。"
+                              reading="正数表示实验资产增长，负数表示实验资产低于初始值。"
+                            />
+                          </span>
                           <b
                             className={
                               selected.currentValue >= selected.initialValue
@@ -1129,21 +1629,65 @@ export function LabDashboard() {
                               : '—'}
                           </b>
                         </div>
+                        <div className="experiment-kpi-risk">
+                          <span className="experiment-kpi-label">
+                            夏普比率
+                            <MetricHelp
+                              title="夏普比率"
+                              description="衡量每承担一单位波动风险获得的收益效率。"
+                              reading="通常数值越高，风险收益效率越好；本演示按无风险利率为 0 估算。"
+                              align="end"
+                            />
+                          </span>
+                          <b
+                            className={
+                              (riskMetrics?.sharpe ?? 0) >= 1 ? 'up' : ''
+                            }
+                          >
+                            {riskMetrics?.sharpe.toFixed(2) ?? '—'}
+                          </b>
+                          <small>年化估算</small>
+                        </div>
+                        <div className="experiment-kpi-risk">
+                          <span className="experiment-kpi-label">
+                            最大回撤
+                            <MetricHelp
+                              title="最大回撤"
+                              description="观察期内，净值从历史峰值跌至随后最低点的最大跌幅。"
+                              reading="绝对值越小，代表该阶段经历的最大下跌幅度越轻。"
+                              align="end"
+                            />
+                          </span>
+                          <b className="down">
+                            {riskMetrics
+                              ? `${riskMetrics.maxDrawdown.toFixed(2)}%`
+                              : '—'}
+                          </b>
+                          <small>净值序列</small>
+                        </div>
                       </div>
                     </div>
 
                     <div className="experiment-chart-card">
                       <div className="lab-card-heading">
                         <div>
-                          <span>实验净值 K 线</span>
-                          <b>日 K · 历史净值</b>
+                          <span>实验表现</span>
+                          <b>{experimentChartHeading(chartMode)}</b>
                         </div>
                         <small>非未来预测</small>
                       </div>
-                      <ExperimentCandlestickChart
-                        key={selected.id}
-                        channel={selected}
-                      />
+                      {chartMode === 'security' ? (
+                        <ExperimentCandlestickChart
+                          key={`${selected.id}-security`}
+                          channel={selected}
+                        />
+                      ) : (
+                        <ExperimentNetValueChart
+                          key={`${selected.id}-${chartMode}`}
+                          channel={selected}
+                          mode={chartMode}
+                        />
+                      )}
                     </div>
                   </section>
 
@@ -1183,23 +1727,61 @@ export function LabDashboard() {
                       <div className="lab-card-heading">
                         <div>
                           <span>操作日志</span>
-                          <b>日级模拟操作记录</b>
+                          <b>策略信号记录</b>
                         </div>
-                        <small>{selected.trades.length} 条</small>
+                        <div className="experiment-log-heading-meta">
+                          <span
+                            className="experiment-log-legend"
+                            aria-label="操作代号：B 表示买入，S 表示卖出，R 表示调仓"
+                          >
+                            B 买入 · S 卖出 · R 调仓
+                          </span>
+                          <small>{selected.trades.length} 条</small>
+                        </div>
                       </div>
                       {selected.trades.length ? (
-                        selected.trades.map((trade) => (
-                          <div className="experiment-log-row" key={trade.id}>
-                            <i>{trade.action}</i>
-                            <div>
-                              <b>{trade.asset}</b>
-                              <span>{trade.detail}</span>
-                              <small>
-                                {trade.time.slice(0, 5)} · {trade.reason}
-                              </small>
-                            </div>
-                          </div>
-                        ))
+                        <div className="experiment-log-list">
+                          {selected.trades.map((trade) => {
+                            const code = tradeCode(trade.action);
+                            const expanded = expandedTradeId === trade.id;
+                            return (
+                              <article
+                                className={`experiment-log-row${expanded ? ' expanded' : ''}`}
+                                key={trade.id}
+                              >
+                                <button
+                                  type="button"
+                                  className="experiment-log-summary"
+                                  aria-expanded={expanded}
+                                  aria-label={`${trade.action}记录，${trade.asset}，${trade.time.slice(0, 5)}，${expanded ? '收起' : '查看'}详情`}
+                                  onClick={() =>
+                                    setExpandedTradeId((current) =>
+                                      current === trade.id ? null : trade.id,
+                                    )
+                                  }
+                                >
+                                  <i
+                                    className={`signal-${code.toLowerCase()}`}
+                                    aria-hidden="true"
+                                  >
+                                    {code}
+                                  </i>
+                                  <span>
+                                    <b>{trade.asset}</b>
+                                    <small>{trade.time.slice(0, 5)}</small>
+                                  </span>
+                                  <ChevronRight size={14} aria-hidden="true" />
+                                </button>
+                                {expanded && (
+                                  <div className="experiment-log-detail">
+                                    <p>{compactTradeDetail(trade.detail)}</p>
+                                    <small>{trade.reason}</small>
+                                  </div>
+                                )}
+                              </article>
+                            );
+                          })}
+                        </div>
                       ) : (
                         <div className="experiment-log-empty">
                           <ListChecks size={21} />
