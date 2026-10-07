@@ -26,7 +26,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react';
-import { AppRail } from '@/components/app-rail';
+import { AppRail, navigateWithPageLoad } from '@/components/app-rail';
 import { CustomStrategyDialog } from '@/components/custom-strategy-dialog';
 import { ThemeSelector } from '@/components/theme-selector';
 import {
@@ -1405,7 +1405,11 @@ export function LabDashboard() {
               <Sparkles size={15} aria-hidden="true" />
               <span>{newUserDemo ? '退出演示' : '新用户演示'}</span>
             </button>
-            <Link href="/strategies" className="lab-strategy-link">
+            <Link
+              href="/strategies"
+              className="lab-strategy-link"
+              onClick={(event) => navigateWithPageLoad(event, '/strategies')}
+            >
               策略广场 <ArrowRight size={14} />
             </Link>
             <ThemeSelector />

@@ -53,7 +53,7 @@ const items = [
   { href: '/credits', label: '积分消耗', short: '积分消耗', icon: Coins },
 ] as const;
 
-function navigateWithPageLoad(
+export function navigateWithPageLoad(
   event: MouseEvent<HTMLAnchorElement>,
   href: string,
 ) {
