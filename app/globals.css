@@ -572,6 +572,28 @@ button {
     width: 38px;
     height: 38px;
   }
+  .channels-collapsed .experiment-card-symbol > svg {
+    display: none;
+  }
+  .channels-collapsed .experiment-card-compact-label {
+    display: block;
+  }
+  .channels-collapsed .experiment-card-symbol::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border: 2px solid #11131b;
+    border-radius: 50%;
+    background: #737789;
+  }
+  .channels-collapsed
+    .experiment-card.is-running
+    .experiment-card-symbol::after {
+    background: #72d1b7;
+  }
 }
 .experiment-list {
   padding: 8px;
@@ -616,13 +638,38 @@ button {
   margin: 13px 0;
 }
 .experiment-card-title > span {
+  --channel-color: #c7b1ff;
+  --channel-bg: #322a45;
+  position: relative;
   width: 34px;
   height: 34px;
   display: grid;
   place-items: center;
   border-radius: 9px;
-  color: #c7b1ff;
-  background: #322a45;
+  color: var(--channel-color);
+  background: var(--channel-bg);
+}
+.experiment-card-symbol.tone-equity {
+  --channel-color: #77d5bd;
+  --channel-bg: #1d3934;
+}
+.experiment-card-symbol.tone-fund {
+  --channel-color: #c7b1ff;
+  --channel-bg: #322a45;
+}
+.experiment-card-symbol.tone-derivative {
+  --channel-color: #e6b778;
+  --channel-bg: #3c3021;
+}
+.experiment-card-symbol.tone-crypto {
+  --channel-color: #8dc9ee;
+  --channel-bg: #203646;
+}
+.experiment-card-compact-label {
+  display: none;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 .experiment-card-title div {
   display: grid;
@@ -1847,6 +1894,46 @@ button {
   gap: 12px;
   margin-top: 18px;
 }
+.experiment-pause-dialog {
+  width: min(440px, calc(100vw - 32px)) !important;
+  max-width: 440px !important;
+}
+.experiment-pause-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 2px;
+  color: #e9bd7b;
+  border: 1px solid #5b4930;
+  border-radius: 12px;
+  background: #302619;
+}
+.experiment-pause-note {
+  padding: 11px 13px;
+  color: #b8b2c1;
+  border: 1px solid #393341;
+  border-radius: 9px;
+  background: #1a1820;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.lab-pause-confirm-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 17px;
+  color: #21170b;
+  border-radius: 10px;
+  background: #e9b96f;
+  font-weight: 700;
+}
+.lab-pause-confirm-button:hover,
+.lab-pause-confirm-button:focus-visible {
+  background: #f0c783;
+}
 .up {
   color: var(--lab-green) !important;
 }
@@ -2182,6 +2269,21 @@ html[data-theme='light'] .experiment-card.active {
 html[data-theme='light'] .experiment-card-title > span {
   color: #6549b8;
   background: #e9e3f7;
+}
+html[data-theme='light'] .experiment-card-symbol.tone-equity {
+  color: #267a67;
+  background: #def3ed;
+}
+html[data-theme='light'] .experiment-card-symbol.tone-derivative {
+  color: #9a621f;
+  background: #f8ead4;
+}
+html[data-theme='light'] .experiment-card-symbol.tone-crypto {
+  color: #276d9d;
+  background: #dfedf7;
+}
+html[data-theme='light'] .channels-collapsed .experiment-card-symbol::after {
+  border-color: #fff;
 }
 html[data-theme='light'] .experiment-card-arrow {
   color: #684cbd;
@@ -2544,6 +2646,16 @@ html[data-theme='light'] .owl-dialog [data-slot='dialog-close']:focus-visible {
   border-color: #d8cde9;
   background: #f1edf8;
   box-shadow: 0 3px 10px #62479d14;
+}
+html[data-theme='light'] .experiment-pause-icon {
+  color: #9a621f;
+  border-color: #ead5b4;
+  background: #fbf0df;
+}
+html[data-theme='light'] .experiment-pause-note {
+  color: #5f6575;
+  border-color: #e2e4ea;
+  background: #f7f8fa;
 }
 .app-shell {
   min-height: 100vh;

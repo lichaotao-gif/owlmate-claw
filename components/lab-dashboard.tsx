@@ -223,6 +223,18 @@ function tradeCode(action: ExperimentTrade['action']) {
   return 'R';
 }
 
+function experimentCompactLabel(name: string) {
+  const concise = name.replace(/实验|验证/gu, '').replace(/\s+/gu, '');
+  return Array.from(concise).slice(0, 2).join('');
+}
+
+function experimentMarketTone(market: InvestmentMarket) {
+  if (market === '数字货币') return 'crypto';
+  if (market === '期货' || market === '期权') return 'derivative';
+  if (market === 'ETF') return 'fund';
+  return 'equity';
+}
+
 type ExperimentChartMode = 'security' | 'portfolio' | 'cash';
 
 function experimentChartMode(channel: ExperimentChannel): ExperimentChartMode {
@@ -952,7 +964,7 @@ function ExperimentCard({
   const positive = change >= 0;
   return (
     <button
-      className={`experiment-card${active ? ' active' : ''}`}
+      className={`experiment-card ${channel.status === '运行中' ? 'is-running' : 'is-paused'}${active ? ' active' : ''}`}
       onClick={onSelect}
       aria-pressed={active}
       aria-label={`${channel.name}，策略：${channel.strategyName}，当前实验资产 ¥${money(channel.currentValue)}`}
@@ -972,8 +984,13 @@ function ExperimentCard({
         <span>{channel.strategyScope}</span>
       </div>
       <div className="experiment-card-title">
-        <span>
-          <FlaskConical size={17} />
+        <span
+          className={`experiment-card-symbol tone-${experimentMarketTone(channel.market)}`}
+        >
+          <FlaskConical size={17} aria-hidden="true" />
+          <b className="experiment-card-compact-label" aria-hidden="true">
+            {experimentCompactLabel(channel.name)}
+          </b>
         </span>
         <div>
           <b>{channel.name}</b>
@@ -1011,6 +1028,7 @@ export function LabDashboard() {
   const [notice, setNotice] = useState('');
   const [newUserDemo, setNewUserDemo] = useState(false);
   const [channelsCollapsed, setChannelsCollapsed] = useState(false);
+  const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
   const [assetEditorOpen, setAssetEditorOpen] = useState(false);
   const [assetDrafts, setAssetDrafts] = useState<DraftAsset[]>([]);
   const [assetEditorError, setAssetEditorError] = useState('');
@@ -1208,19 +1226,34 @@ export function LabDashboard() {
 
   function toggleStatus() {
     if (!selected) return;
+    if (selected.status === '运行中') {
+      setPauseConfirmOpen(true);
+      return;
+    }
     const next = channels.map((channel) =>
       channel.id === selected.id
         ? {
             ...channel,
-            status:
-              channel.status === '运行中'
-                ? ('已暂停' as const)
-                : ('运行中' as const),
+            status: '运行中' as const,
           }
         : channel,
     );
     setChannels(next);
     saveExperimentChannels(next);
+    setNotice(`「${selected.name}」已继续运行。`);
+  }
+
+  function confirmPauseExperiment() {
+    if (!selected) return;
+    const next = channels.map((channel) =>
+      channel.id === selected.id
+        ? { ...channel, status: '已暂停' as const }
+        : channel,
+    );
+    setChannels(next);
+    saveExperimentChannels(next);
+    setPauseConfirmOpen(false);
+    setNotice(`「${selected.name}」已暂停，不再产生新的模拟操作。`);
   }
 
   function openStrategyEditor() {
@@ -1811,6 +1844,39 @@ export function LabDashboard() {
           </footer>
         </main>
       </div>
+
+      <Dialog open={pauseConfirmOpen} onOpenChange={setPauseConfirmOpen}>
+        <DialogContent className="owl-dialog experiment-pause-dialog">
+          <div className="experiment-pause-icon" aria-hidden="true">
+            <Pause size={20} />
+          </div>
+          <DialogTitle>确认暂停实验？</DialogTitle>
+          <DialogDescription>
+            暂停「{selected?.name ?? '当前实验'}
+            」后，策略将停止产生新的模拟操作。
+          </DialogDescription>
+          <div className="experiment-pause-note">
+            已有资产、净值曲线和历史日志都会保留，之后可以随时继续实验。
+          </div>
+          <div className="lab-dialog-actions">
+            <button
+              type="button"
+              className="lab-secondary-button"
+              onClick={() => setPauseConfirmOpen(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="lab-pause-confirm-button"
+              onClick={confirmPauseExperiment}
+            >
+              <Pause size={14} aria-hidden="true" />
+              确认暂停
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={strategyEditorOpen}
