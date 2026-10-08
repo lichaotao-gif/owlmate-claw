@@ -29,6 +29,7 @@ import {
 import { AppRail, navigateWithPageLoad } from '@/components/app-rail';
 import { CustomStrategyDialog } from '@/components/custom-strategy-dialog';
 import { ThemeSelector } from '@/components/theme-selector';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -315,10 +316,28 @@ function MetricHelp({
 
 function ExperimentCandlestickChart({
   channel,
+  holding,
 }: {
   channel: ExperimentChannel;
+  holding?: ExperimentAsset;
 }) {
-  const allCandles = useMemo(() => makeCandleData(channel), [channel]);
+  const allCandles = useMemo(() => {
+    if (!holding) return makeCandleData(channel);
+    // Holdings have no individual return history yet; retain the demo
+    // normalization while separating their series and relevant trade markers.
+    return makeCandleData({
+      ...channel,
+      id: `${channel.id}-${holding.id}`,
+      trades: channel.trades.filter(
+        (trade) =>
+          `${trade.asset} ${trade.detail}`.includes(holding.name) ||
+          Boolean(
+            holding.code &&
+            `${trade.asset} ${trade.detail}`.includes(holding.code),
+          ),
+      ),
+    });
+  }, [channel, holding]);
   const [range, setRange] = useState<ChartRange>(30);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const candles = useMemo(() => allCandles.slice(-range), [allCandles, range]);
@@ -401,7 +420,7 @@ function ExperimentCandlestickChart({
         <button
           type="button"
           className="lab-k-interaction"
-          aria-label={`${channel.name}${rangeDescription}净值K线图。聚焦后使用左右方向键查看每日行情。`}
+          aria-label={`${holding?.name ?? channel.name}${rangeDescription}净值K线图。聚焦后使用左右方向键查看每日行情。`}
           onPointerMove={(event) =>
             selectFromPointer(event.clientX, event.currentTarget)
           }
@@ -598,10 +617,87 @@ function ExperimentCandlestickChart({
         )}
       </div>
       <figcaption>
-        净值以实验初始日为 100；B 为买入/调仓，S
-        为卖出。图表数据为模拟实验记录。
+        {holding
+          ? '单持仓 K 线为模拟示意，使用通道收益归一化至 100，尚未接入该标的独立行情；B 为买入/调仓，S 为卖出。'
+          : '净值以实验初始日为 100；B 为买入/调仓，S 为卖出。图表数据为模拟实验记录。'}
       </figcaption>
     </figure>
+  );
+}
+
+function ExperimentChartCard({ channel }: { channel: ExperimentChannel }) {
+  const mode = experimentChartMode(channel);
+  const securities = channel.assets.filter(
+    (asset) => asset.kind === 'security',
+  );
+  const [view, setView] = useState('curve');
+  const [holdingId, setHoldingId] = useState(securities[0]?.id ?? '');
+  const holding =
+    securities.find((asset) => asset.id === holdingId) ?? securities[0];
+  const hasMultipleHoldings = securities.length > 1;
+
+  return (
+    <div className="experiment-chart-card">
+      <div className="lab-card-heading">
+        <div>
+          <span>实验表现</span>
+          <b>
+            {hasMultipleHoldings && view === 'candles'
+              ? '持仓 K 线'
+              : experimentChartHeading(mode)}
+          </b>
+        </div>
+        <small>非未来预测</small>
+      </div>
+      {hasMultipleHoldings ? (
+        <Tabs
+          value={view}
+          onValueChange={setView}
+          className="experiment-chart-tabs"
+        >
+          <div className="experiment-chart-toolbar">
+            <TabsList
+              aria-label="图表类型"
+              className="experiment-chart-tab-list"
+            >
+              <TabsTrigger value="curve">净值曲线</TabsTrigger>
+              <TabsTrigger value="candles">持仓 K 线</TabsTrigger>
+            </TabsList>
+            {view === 'candles' && (
+              <label className="experiment-chart-holding-picker">
+                <span>查看持仓</span>
+                <select
+                  aria-label="查看持仓"
+                  value={holding.id}
+                  onChange={(event) => setHoldingId(event.target.value)}
+                >
+                  {securities.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.name}
+                      {asset.code ? ` · ${asset.code}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+          <TabsContent value="curve">
+            <ExperimentNetValueChart channel={channel} mode="portfolio" />
+          </TabsContent>
+          <TabsContent value="candles">
+            <ExperimentCandlestickChart
+              key={holding.id}
+              channel={channel}
+              holding={holding}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : mode === 'security' ? (
+        <ExperimentCandlestickChart channel={channel} />
+      ) : (
+        <ExperimentNetValueChart channel={channel} mode={mode} />
+      )}
+    </div>
   );
 }
 
@@ -1127,7 +1223,6 @@ export function LabDashboard() {
     () => (selected ? experimentRiskMetrics(selected) : null),
     [selected],
   );
-  const chartMode = selected ? experimentChartMode(selected) : 'portfolio';
   const switchableStrategies = selected
     ? [
         ...(strategies.some((strategy) => strategy.id === selected.strategyId)
@@ -1705,27 +1800,7 @@ export function LabDashboard() {
                       </div>
                     </div>
 
-                    <div className="experiment-chart-card">
-                      <div className="lab-card-heading">
-                        <div>
-                          <span>实验表现</span>
-                          <b>{experimentChartHeading(chartMode)}</b>
-                        </div>
-                        <small>非未来预测</small>
-                      </div>
-                      {chartMode === 'security' ? (
-                        <ExperimentCandlestickChart
-                          key={`${selected.id}-security`}
-                          channel={selected}
-                        />
-                      ) : (
-                        <ExperimentNetValueChart
-                          key={`${selected.id}-${chartMode}`}
-                          channel={selected}
-                          mode={chartMode}
-                        />
-                      )}
-                    </div>
+                    <ExperimentChartCard key={selected.id} channel={selected} />
                   </section>
 
                   <div className="experiment-detail-columns">
