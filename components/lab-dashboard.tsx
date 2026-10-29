@@ -29,6 +29,7 @@ import {
 import { AppRail, navigateWithPageLoad } from '@/components/app-rail';
 import { CustomStrategyDialog } from '@/components/custom-strategy-dialog';
 import { ThemeSelector } from '@/components/theme-selector';
+import { StrategyGuide, StrategyWelcome } from '@/components/strategy-guide';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -308,7 +309,7 @@ function MetricHelp({
           <b>怎么看</b>
           <p>{reading}</p>
         </div>
-        <small>当前为演示口径，基于模拟净值序列计算。</small>
+        <small>基于实验净值序列计算。</small>
       </PopoverContent>
     </Popover>
   );
@@ -618,8 +619,8 @@ function ExperimentCandlestickChart({
       </div>
       <figcaption>
         {holding
-          ? '单持仓 K 线为模拟示意，使用通道收益归一化至 100，尚未接入该标的独立行情；B 为买入/调仓，S 为卖出。'
-          : '净值以实验初始日为 100；B 为买入/调仓，S 为卖出。图表数据为模拟实验记录。'}
+          ? '单持仓 K 线按通道收益归一化至 100，不代表标的独立行情；B 为买入/调仓，S 为卖出。'
+          : '净值以实验初始日为 100；B 为买入/调仓，S 为卖出。图表展示实验记录。'}
       </figcaption>
     </figure>
   );
@@ -830,7 +831,7 @@ function ExperimentNetValueChart({
         {mode === 'portfolio' && (
           <span>
             <i className="benchmark-line" />
-            模拟基准
+            参考基准
           </span>
         )}
         {mode === 'portfolio' && (
@@ -1015,7 +1016,7 @@ function ExperimentNetValueChart({
               </div>
               {active.benchmark !== undefined && (
                 <div>
-                  <dt>模拟基准</dt>
+                  <dt>参考基准</dt>
                   <dd>{active.benchmark.toFixed(2)}</dd>
                 </div>
               )}
@@ -1038,7 +1039,7 @@ function ExperimentNetValueChart({
       <figcaption>
         {mode === 'cash'
           ? '现金通道尚未建仓；净值以实验初始日为 100。'
-          : '组合净值以实验初始日为 100；实线为组合，虚线为模拟基准。B 表示买入，S 表示卖出，R 表示调仓。'}
+          : '组合净值以实验初始日为 100；实线为组合，虚线为参考基准。B 表示买入，S 表示卖出，R 表示调仓。'}
       </figcaption>
     </figure>
   );
@@ -1116,6 +1117,7 @@ export function LabDashboard() {
   const [channels, setChannels] = useState<ExperimentChannel[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [customStrategyOpen, setCustomStrategyOpen] = useState(false);
   const [customStrategies, setCustomStrategies] = useState<CustomStrategy[]>(
     [],
@@ -1133,6 +1135,12 @@ export function LabDashboard() {
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [strategyId, setStrategyId] = useState('');
+  const [strategyChoice, setStrategyChoice] = useState<'create' | 'existing'>(
+    'existing',
+  );
+  const [strategyQuery, setStrategyQuery] = useState('');
+  const [choosingExistingStrategy, setChoosingExistingStrategy] =
+    useState(false);
   const [market, setMarket] = useState<InvestmentMarket | ''>('');
   const [scope, setScope] = useState<'通用' | '单品'>('通用');
   const [assetMode, setAssetMode] = useState<AssetMode>('cash');
@@ -1161,9 +1169,20 @@ export function LabDashboard() {
       markets: strategyMarketMap[item.id] ?? priceSeriesMarkets,
     })),
   ];
-  const availableStrategies = market
-    ? strategies.filter((strategy) => strategy.markets.includes(market))
-    : [];
+  const personalIds = new Set(customStrategies.map((item) => item.id));
+  const availableStrategies = strategies.filter((strategy) =>
+    personalIds.has(strategy.id),
+  );
+  const visiblePersonalStrategies = availableStrategies.filter((strategy) =>
+    `${strategy.name} ${strategy.summary}`
+      .toLowerCase()
+      .includes(strategyQuery.trim().toLowerCase()),
+  );
+  function choosePersonalStrategy(strategy: (typeof strategies)[number]) {
+    setStrategyId(strategy.id);
+    setScope(strategy.scope);
+    setMarket(strategy.markets.includes('ETF') ? 'ETF' : strategy.markets[0]);
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -1174,7 +1193,7 @@ export function LabDashboard() {
         setChannels(next);
         setSelectedId((current) => current || next[0]?.id || '');
       } catch {
-        setNotice('本机实验数据读取失败，已显示演示实验。');
+        setNotice('本机实验数据读取失败，已恢复初始实验。');
         const next = readExperimentChannels(null);
         setChannels(next);
         setSelectedId(next[0]?.id ?? '');
@@ -1186,8 +1205,17 @@ export function LabDashboard() {
           const pending = JSON.parse(
             localStorage.getItem('owlmate-new-experiment-strategy') ?? 'null',
           ) as { id?: string; name?: string } | null;
-          if (pending?.id) setStrategyId(pending.id);
-          if (pending?.name) setName(`${pending.name}实验`);
+          const pendingStrategy = readCustomStrategies(
+            localStorage.getItem(CUSTOM_STRATEGIES_KEY),
+          ).find((item) => item.id === pending?.id);
+          if (pendingStrategy) {
+            const supported = customStrategyMarkets(pendingStrategy);
+            setMarket(supported.includes('ETF') ? 'ETF' : supported[0]);
+            setScope('通用');
+            setStrategyId(pendingStrategy.id);
+            setChoosingExistingStrategy(true);
+            setName(`${pendingStrategy.name}实验`);
+          }
           localStorage.removeItem('owlmate-new-experiment-strategy');
         } catch {
           // The creation flow remains usable when the handoff payload is invalid.
@@ -1254,6 +1282,9 @@ export function LabDashboard() {
     setStep(0);
     setName('');
     setStrategyId('');
+    setStrategyChoice('existing');
+    setChoosingExistingStrategy(false);
+    setStrategyQuery('');
     setMarket('');
     setScope('通用');
     setAssetMode('cash');
@@ -1348,7 +1379,7 @@ export function LabDashboard() {
     setChannels(next);
     saveExperimentChannels(next);
     setPauseConfirmOpen(false);
-    setNotice(`「${selected.name}」已暂停，不再产生新的模拟操作。`);
+    setNotice(`「${selected.name}」已暂停，不再产生新的实验操作。`);
   }
 
   function openStrategyEditor() {
@@ -1468,11 +1499,12 @@ export function LabDashboard() {
   const canContinue =
     (step === 0 && name.trim().length > 0) ||
     (step === 1 &&
-      Boolean(
-        market &&
-        strategyId &&
-        availableStrategies.some((strategy) => strategy.id === strategyId),
-      )) ||
+      (!choosingExistingStrategy ||
+        Boolean(
+          market &&
+          strategyId &&
+          availableStrategies.some((strategy) => strategy.id === strategyId),
+        ))) ||
     (step === 2 &&
       ((assetMode !== 'security' && Number(cash) > 0) ||
         (assetMode !== 'cash' &&
@@ -1484,21 +1516,29 @@ export function LabDashboard() {
       <div className="workspace lab-workspace">
         <header className="topbar lab-topbar">
           <div className="wordmark">
-            OwlMate <span className="wordmark-product">实验室</span>
+            策略实验室
             <span className="brand-beta">BETA</span>
           </div>
           <div className="header-right">
             <button
+              className="lab-help-trigger"
+              aria-label="使用指南"
+              onClick={() => setGuideOpen(true)}
+            >
+              <CircleHelp size={17} aria-hidden="true" />
+              <span>使用指南</span>
+            </button>
+            <button
               className={`lab-demo-toggle${newUserDemo ? ' active' : ''}`}
               aria-pressed={newUserDemo}
-              aria-label={newUserDemo ? '退出新用户演示' : '查看新用户演示'}
+              aria-label={newUserDemo ? '退出新用户引导' : '查看新用户引导'}
               onClick={() => {
                 setNewUserDemo((current) => !current);
                 setNotice('');
               }}
             >
               <Sparkles size={15} aria-hidden="true" />
-              <span>{newUserDemo ? '退出演示' : '新用户演示'}</span>
+              <span>{newUserDemo ? '退出引导' : '新用户引导'}</span>
             </button>
             <Link
               href="/strategies"
@@ -1564,68 +1604,27 @@ export function LabDashboard() {
                   0,
                 )}
               </b>
-              <small>只展示已经发生的模拟动作</small>
+              <small>按时间记录每次策略操作</small>
             </article>
           </section>
 
           {!selected && (
-            <section
-              className="lab-empty-onboarding"
-              aria-labelledby="lab-empty-title"
-            >
-              <div className="lab-empty-intro">
-                <span className="lab-empty-icon" aria-hidden="true">
-                  <FlaskConical size={25} />
-                </span>
-                <div>
-                  <span className="eyebrow">START YOUR FIRST EXPERIMENT</span>
-                  <h2 id="lab-empty-title">还没有实验，从一个想法开始</h2>
-                  <p>
-                    每个实验都是独立通道，策略、资产与操作记录互不影响。按下面三步即可开始观察。
-                  </p>
-                </div>
-                <button
-                  className="lab-create-button"
-                  onClick={() => setCreateOpen(true)}
-                >
-                  <Plus size={17} aria-hidden="true" /> 创建第一个实验
-                </button>
-              </div>
-
-              <ol
-                className="lab-onboarding-steps"
-                aria-label="开始实验的三个步骤"
-              >
-                <li>
-                  <span>1</span>
-                  <div>
-                    <b>命名实验</b>
-                    <p>给投资想法起一个容易识别的名字，建立独立实验通道。</p>
-                  </div>
-                </li>
-                <li>
-                  <span>2</span>
-                  <div>
-                    <b>选择类型与策略</b>
-                    <p>先选投资类型，再从对应策略中选择或创建自定义策略。</p>
-                  </div>
-                </li>
-                <li>
-                  <span>3</span>
-                  <div>
-                    <b>配置资产并运行</b>
-                    <p>用现金、持仓或混合资产启动，随后查看日 K 与操作日志。</p>
-                  </div>
-                </li>
-              </ol>
-
+            <>
+              <StrategyWelcome
+                mode="lab"
+                onStart={() => {
+                  setStep(0);
+                  setCreateOpen(true);
+                }}
+                onHelp={() => setGuideOpen(true)}
+              />
               {newUserDemo && (
                 <p className="lab-demo-safe-note">
                   <ShieldCheck size={14} aria-hidden="true" />
                   当前仅预览新用户空状态，已有实验数据没有变化。
                 </p>
               )}
-            </section>
+            </>
           )}
 
           {selected && (
@@ -1767,7 +1766,7 @@ export function LabDashboard() {
                             <MetricHelp
                               title="夏普比率"
                               description="衡量每承担一单位波动风险获得的收益效率。"
-                              reading="通常数值越高，风险收益效率越好；本演示按无风险利率为 0 估算。"
+                              reading="通常数值越高，风险收益效率越好；按无风险利率为 0 估算。"
                               align="end"
                             />
                           </span>
@@ -1897,7 +1896,7 @@ export function LabDashboard() {
                       ) : (
                         <div className="experiment-log-empty">
                           <ListChecks size={21} />
-                          <span>实验刚刚开始，暂无模拟交易</span>
+                          <span>实验刚刚开始，暂无操作记录</span>
                         </div>
                       )}
                     </section>
@@ -1917,13 +1916,28 @@ export function LabDashboard() {
 
           <footer className="page-footer lab-footer">
             <span>
-              <ShieldCheck size={12} /> OwlMate 实验室仅用于量化策略科研与学习
+              <ShieldCheck size={12} /> 策略实验室仅用于量化策略科研与学习
             </span>
-            <span>虚拟资产与模拟交易不构成任何操作建议</span>
+            <details className="lab-data-notes">
+              <summary>数据说明</summary>
+              <p>
+                当前实验使用虚拟资产和样例行情记录，不连接真实交易账户。历史曲线与参考基准用于研究和学习，不代表可实现的收益或操作建议。
+              </p>
+            </details>
           </footer>
         </main>
       </div>
 
+      {guideOpen && (
+        <StrategyGuide
+          mode="lab"
+          onClose={() => setGuideOpen(false)}
+          onStart={() => {
+            setStep(0);
+            setCreateOpen(true);
+          }}
+        />
+      )}
       <Dialog open={pauseConfirmOpen} onOpenChange={setPauseConfirmOpen}>
         <DialogContent className="owl-dialog experiment-pause-dialog">
           <div className="experiment-pause-icon" aria-hidden="true">
@@ -1932,7 +1946,7 @@ export function LabDashboard() {
           <DialogTitle>确认暂停实验？</DialogTitle>
           <DialogDescription>
             暂停「{selected?.name ?? '当前实验'}
-            」后，策略将停止产生新的模拟操作。
+            」后，策略将停止产生新的实验操作。
           </DialogDescription>
           <div className="experiment-pause-note">
             已有资产、净值曲线和历史日志都会保留，之后可以随时继续实验。
@@ -2172,80 +2186,107 @@ export function LabDashboard() {
             )}
             {step === 1 && (
               <div className="lab-strategy-step">
-                <div className="lab-market-heading">
-                  <div>
-                    <b>选择投资类型</b>
-                    <small>策略会根据投资类型进行筛选</small>
-                  </div>
-                  {market && <span>已选：{market}</span>}
-                </div>
-                <div className="lab-market-options" aria-label="选择投资类型">
-                  {investmentMarkets.map((item) => (
-                    <button
-                      type="button"
-                      key={item}
-                      className={market === item ? 'active' : ''}
-                      aria-pressed={market === item}
-                      onClick={() => {
-                        setMarket(item);
-                        setStrategyId('');
-                        setScope('通用');
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-
-                {!market ? (
-                  <div className="lab-market-empty">
-                    <ListChecks size={20} />
-                    <div>
-                      <b>请先选择投资类型</b>
-                      <span>选择后将显示对应的可用策略。</span>
-                    </div>
-                  </div>
+                {!choosingExistingStrategy ? (
+                  <fieldset className="lab-strategy-route">
+                    <legend>你想如何添加策略？</legend>
+                    <label>
+                      <input
+                        type="radio"
+                        name="strategy-source"
+                        checked={strategyChoice === 'create'}
+                        onChange={() => setStrategyChoice('create')}
+                      />
+                      <Sparkles size={21} />
+                      <span>
+                        <b>创建策略</b>
+                        <small>
+                          用文字、语音或文档描述想法，创建自己的策略。
+                        </small>
+                      </span>
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="strategy-source"
+                        checked={strategyChoice === 'existing'}
+                        onChange={() => setStrategyChoice('existing')}
+                      />
+                      <ListChecks size={21} />
+                      <span>
+                        <b>选择已有策略</b>
+                        <small>从之前创建或收藏的策略中选择。</small>
+                      </span>
+                    </label>
+                    <p>选择一个方式，点击「下一步」继续。</p>
+                  </fieldset>
                 ) : (
                   <>
                     <div className="lab-strategy-results-heading">
-                      <b>{market}可用策略</b>
-                      <span>{availableStrategies.length} 个</span>
+                      <b>我的策略库</b>
+                      <span>{visiblePersonalStrategies.length} 个可选</span>
                     </div>
+                    <label className="lab-field">
+                      <span className="sr-only">搜索已有策略</span>
+                      <input
+                        aria-label="搜索已有策略"
+                        value={strategyQuery}
+                        onChange={(event) =>
+                          setStrategyQuery(event.target.value)
+                        }
+                        placeholder="搜索策略名称或规则"
+                      />
+                    </label>
                     <div className="lab-strategy-options">
-                      <button
-                        type="button"
-                        className="lab-custom-strategy-card"
-                        onClick={() => setCustomStrategyOpen(true)}
-                      >
-                        <span>{market} · 自定义</span>
-                        <b>
-                          <Plus size={15} /> 创建自己的策略
-                        </b>
-                        <p>
-                          用自然语言描述想法，创建仅用于{market}的完整策略。
-                        </p>
-                        <Sparkles size={16} />
-                      </button>
-                      {availableStrategies.map((strategy) => (
-                        <button
-                          type="button"
-                          key={strategy.id}
-                          className={strategyId === strategy.id ? 'active' : ''}
-                          aria-pressed={strategyId === strategy.id}
-                          onClick={() => {
-                            setStrategyId(strategy.id);
-                            setScope(strategy.scope);
-                          }}
-                        >
-                          <span>
-                            {market} · {strategy.scope}
-                          </span>
-                          <b>{strategy.name}</b>
-                          <p>{strategy.summary}</p>
-                          {strategyId === strategy.id && <Check size={16} />}
-                        </button>
-                      ))}
+                      {visiblePersonalStrategies.map((strategy) => {
+                        const saved = customStrategies.find(
+                          (item) => item.id === strategy.id,
+                        )!;
+                        return (
+                          <button
+                            type="button"
+                            key={strategy.id}
+                            className={
+                              strategyId === strategy.id ? 'active' : ''
+                            }
+                            aria-pressed={strategyId === strategy.id}
+                            onClick={() => choosePersonalStrategy(strategy)}
+                          >
+                            <span>
+                              {saved.origin === 'community'
+                                ? '已收藏'
+                                : '我创建的'}{' '}
+                              · {strategy.scope}
+                            </span>
+                            <b>{strategy.name}</b>
+                            <p>{strategy.summary}</p>
+                            {strategyId === strategy.id && <Check size={16} />}
+                          </button>
+                        );
+                      })}
                     </div>
+                    {!visiblePersonalStrategies.length && (
+                      <div className="lab-market-empty">
+                        <ListChecks size={22} />
+                        <div>
+                          <b>
+                            {strategyQuery
+                              ? '没有找到匹配的策略'
+                              : '还没有创建或收藏的策略'}
+                          </b>
+                          <span>
+                            {strategyQuery
+                              ? '试试其他关键词。'
+                              : '先创建一个策略，或到策略广场收藏后再来选择。'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {strategyId && market && (
+                      <p className="lab-strategy-auto-market">
+                        适用类型由策略自动确定：{market} ·{' '}
+                        {marketCurrencyMap[market]}，无需另行选择。
+                      </p>
+                    )}
                   </>
                 )}
               </div>
@@ -2376,7 +2417,11 @@ export function LabDashboard() {
             <button
               className="lab-secondary-button"
               disabled={step === 0}
-              onClick={() => setStep((value) => value - 1)}
+              onClick={() => {
+                if (step === 1 && choosingExistingStrategy)
+                  setChoosingExistingStrategy(false);
+                else setStep((value) => value - 1);
+              }}
             >
               <ChevronLeft size={15} /> 上一步
             </button>
@@ -2384,7 +2429,13 @@ export function LabDashboard() {
               <button
                 className="lab-primary-button"
                 disabled={!canContinue}
-                onClick={() => setStep((value) => value + 1)}
+                onClick={() => {
+                  if (step === 1 && !choosingExistingStrategy) {
+                    if (strategyChoice === 'create')
+                      setCustomStrategyOpen(true);
+                    else setChoosingExistingStrategy(true);
+                  } else setStep((value) => value + 1);
+                }}
               >
                 下一步 <ChevronRight size={15} />
               </button>
@@ -2403,15 +2454,20 @@ export function LabDashboard() {
       <CustomStrategyDialog
         open={customStrategyOpen}
         onOpenChange={setCustomStrategyOpen}
-        marketId={market || undefined}
         onCreated={(strategy) => {
           setCustomStrategies((items) => [
             ...items.filter((item) => item.id !== strategy.id),
             strategy,
           ]);
           setStrategyId(strategy.id);
+          setStrategyChoice('existing');
+          setChoosingExistingStrategy(true);
+          setStrategyQuery('');
+          const supported = customStrategyMarkets(strategy);
+          setMarket(supported.includes('ETF') ? 'ETF' : supported[0]);
           setScope(strategy.assetScope.includes('单') ? '单品' : '通用');
-          setNotice(`「${strategy.name}」已创建并选中。`);
+          setStep(2);
+          setNotice(`「${strategy.name}」已用于当前实验，请配置初始资产。`);
         }}
       />
     </div>

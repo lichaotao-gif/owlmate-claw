@@ -7,12 +7,16 @@
   },
   "scripts": {
     "dev": "vinext dev",
+    "export:html": "node scripts/export-single-html.mjs",
     "work:start": "node scripts/workflow.mjs start",
     "sync:down": "node scripts/workflow.mjs down",
     "sync:up": "node scripts/workflow.mjs sync",
     "build": "vinext build && node scripts/prepare-static-output.mjs",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
+    "verify:guide": "node --test scripts/verify-strategy-guide.mjs",
+    "verify:review-holdings": "node --test scripts/verify-review-holdings.mjs",
+    "verify:strategies": "node --test scripts/verify-strategy-library.mjs",
     "format": "oxfmt"
   },
   "dependencies": {

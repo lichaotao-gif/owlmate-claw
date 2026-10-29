@@ -166,6 +166,7 @@ async function startWork() {
     writeFileSync(DEV_SERVER_FILE, `${JSON.stringify({ pid: child.pid, url: PREVIEW_URL, projectRoot: PROJECT_ROOT, startedAt: new Date().toISOString() })}\n`);
 
     const stopChild = (signal) => {
+      if (typeof child.pid !== 'number' || child.pid <= 0) return;
       try {
         process.kill(process.platform === 'win32' ? child.pid : -child.pid, signal);
       } catch (error) {

@@ -19,6 +19,7 @@ function isThemePreference(value: string | null): value is ThemePreference {
 }
 
 function applyTheme(preference: ThemePreference) {
+  if (document.documentElement.dataset.hostTheme === 'true') return;
   const resolved =
     preference === 'system'
       ? window.matchMedia('(prefers-color-scheme: dark)').matches

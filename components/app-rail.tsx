@@ -7,6 +7,7 @@ import {
   CircleHelp,
   Coins,
   FlaskConical,
+  FolderOpen,
   LogIn,
   LogOut,
   ShieldCheck,
@@ -45,11 +46,12 @@ import {
 const items = [
   {
     href: '/holdings',
-    label: 'OwlMate 实验室',
+    label: '策略实验室',
     short: '实验通道',
     icon: FlaskConical,
   },
   { href: '/strategies', label: '策略广场', short: '策略广场', icon: Store },
+  { href: '/my-strategies', label: '我的策略', short: '我的策略', icon: FolderOpen },
   { href: '/credits', label: '积分消耗', short: '积分消耗', icon: Coins },
 ] as const;
 
@@ -110,7 +112,7 @@ export function AppRail() {
       <Link
         href="/holdings"
         className="brand-symbol"
-        aria-label="OwlMate 实验室"
+        aria-label="策略实验室"
         onClick={(event) => navigateWithPageLoad(event, '/holdings')}
       >
         <OwlLogo />

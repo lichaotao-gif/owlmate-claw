@@ -13,17 +13,31 @@ import {
   ArrowRight,
   Check,
   Clock3,
+  CircleHelp,
   Library,
   LockKeyhole,
   Plus,
   ShieldCheck,
   Sparkles,
   Store,
+  Search,
+  Bookmark,
+  FlaskConical,
   Users,
 } from 'lucide-react';
 import { AppRail } from '@/components/app-rail';
 import { CustomStrategyDialog } from '@/components/custom-strategy-dialog';
 import { ThemeSelector } from '@/components/theme-selector';
+import { StrategyPerformance } from '@/components/strategy-performance';
+import { StrategyGuide, StrategyWelcome } from '@/components/strategy-guide';
+import {
+  discoverStrategies,
+  strategyCategories,
+  strategyMarkets,
+  strategyMarket,
+  type StrategyCategory,
+  type StrategyMarket,
+} from '@/lib/strategy-discovery';
 import {
   Dialog,
   DialogContent,
@@ -42,17 +56,6 @@ import {
   type CustomStrategy,
 } from '@/lib/investment-strategies';
 
-type MarketFilter = '全部' | '免费' | '付费' | '稳健' | '轮动' | '成长';
-
-const marketFilters: MarketFilter[] = [
-  '全部',
-  '免费',
-  '付费',
-  '稳健',
-  '轮动',
-  '成长',
-];
-
 function StrategyImage(props: ImgHTMLAttributes<HTMLImageElement>) {
   // Native images avoid the current vinext next/image client-runtime mismatch.
   return createElement('img', props);
@@ -62,24 +65,19 @@ function priceLabel(strategy: CommunityStrategy) {
   return strategy.price === 0 ? '免费' : `¥${strategy.price}`;
 }
 
-function matchesFilter(strategy: CommunityStrategy, filter: MarketFilter) {
-  if (filter === '全部') return true;
-  if (filter === '免费') return strategy.price === 0;
-  if (filter === '付费') return strategy.price > 0;
-  return strategy.tags.includes(filter);
-}
-
 function StrategyCard({
   strategy,
   referenced,
   onOpen,
   onReference,
+  onFavorite,
   wide = false,
 }: {
   strategy: CommunityStrategy;
   referenced: boolean;
   onOpen: () => void;
   onReference: () => void;
+  onFavorite: () => void;
   wide?: boolean;
 }) {
   return (
@@ -87,24 +85,27 @@ function StrategyCard({
       className={`market-strategy-card${wide ? ' market-strategy-card-wide' : ''}`}
       style={{ '--strategy-accent': strategy.accent } as React.CSSProperties}
     >
-      <div className="market-strategy-cover">
-        <StrategyImage
-          src={strategy.cover}
-          alt={strategy.coverAlt}
-          width={1440}
-          height={810}
-          loading="lazy"
-        />
-        <div className="market-cover-shade" />
-        <div className="market-cover-badges">
-          <span className={strategy.price === 0 ? 'free' : 'paid'}>
-            {priceLabel(strategy)}
-          </span>
-          <span>{strategy.tags[0]}</span>
-        </div>
-      </div>
       <div className="market-strategy-card-body">
-        <h3>{strategy.title}</h3>
+        <div className="discovery-title-row">
+          <h3>{strategy.title}</h3>
+          <div className="discovery-title-actions">
+            <span className="discovery-price">{priceLabel(strategy)}</span>
+            {strategy.price === 0 && (
+              <button
+                type="button"
+                aria-label={`${referenced ? '已收藏' : '收藏'}${strategy.title}`}
+                disabled={referenced}
+                onClick={onFavorite}
+              >
+                <Bookmark
+                  size={14}
+                  fill={referenced ? 'currentColor' : 'none'}
+                />
+                {referenced ? '已收藏' : '收藏'}
+              </button>
+            )}
+          </div>
+        </div>
         <div className="market-author-row">
           <StrategyImage
             src={strategy.authorAvatar}
@@ -118,6 +119,22 @@ function StrategyCard({
           </span>
         </div>
         <p>{strategy.summary}</p>
+        <StrategyPerformance />
+        <div className="discovery-card-facts">
+          <span>
+            <small>适用范围</small>
+            {strategyMarket(strategy.id)}
+          </span>
+          <span>
+            <small>测试状态</small>待测试
+          </span>
+        </div>
+        <p className="discovery-asset-scope">{strategy.assetScope}</p>
+        <div className="discovery-tags">
+          {strategy.tags.map((tag) => (
+            <span key={tag}>{tag}</span>
+          ))}
+        </div>
         <div className="market-strategy-meta">
           <span>
             <Users size={13} /> {strategy.referenceCount} 人引用
@@ -138,11 +155,11 @@ function StrategyCard({
           >
             {referenced ? (
               <>
-                <Check size={14} /> 已引用
+                <Check size={14} /> 打开实验室
               </>
             ) : strategy.price === 0 ? (
               <>
-                <Plus size={14} /> 免费引用
+                <Plus size={14} /> 加入实验室
               </>
             ) : (
               <>
@@ -156,65 +173,12 @@ function StrategyCard({
   );
 }
 
-function MarketSection({
-  eyebrow,
-  title,
-  description,
-  strategies,
-  referencedIds,
-  onOpen,
-  onReference,
-  layout = 'grid',
-  onViewAll,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  strategies: CommunityStrategy[];
-  referencedIds: Set<string>;
-  onOpen: (strategy: CommunityStrategy) => void;
-  onReference: (strategy: CommunityStrategy) => void;
-  layout?: 'grid' | 'bento';
-  onViewAll?: () => void;
-}) {
-  const titleId = `shelf-${eyebrow.toLowerCase().replaceAll(' ', '-')}`;
-  return (
-    <section className="market-shelf" aria-labelledby={titleId}>
-      <div className="market-shelf-heading">
-        <div>
-          <span>{eyebrow}</span>
-          <h2 id={titleId}>{title}</h2>
-          <p>{description}</p>
-        </div>
-        {onViewAll && (
-          <button className="market-shelf-more" onClick={onViewAll}>
-            查看全部 <ArrowRight size={14} />
-          </button>
-        )}
-      </div>
-      <div
-        className={
-          layout === 'bento' ? 'market-bento-grid' : 'market-card-grid'
-        }
-      >
-        {strategies.map((strategy, index) => (
-          <StrategyCard
-            key={strategy.id}
-            strategy={strategy}
-            referenced={referencedIds.has(strategy.id)}
-            onOpen={() => onOpen(strategy)}
-            onReference={() => onReference(strategy)}
-            wide={layout === 'bento' && index === 0}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 export function StrategyMarketplace() {
   const [tab, setTab] = useState<'market' | 'mine'>('market');
-  const [filter, setFilter] = useState<MarketFilter>('全部');
+  const [filter, setFilter] = useState<StrategyCategory>('全部');
+  const [market, setMarket] = useState<StrategyMarket>('全部市场');
+  const [access, setAccess] = useState('全部获取方式');
+  const [sort, setSort] = useState('精选顺序');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<CommunityStrategy | null>(null);
   const [customStrategies, setCustomStrategies] = useState<CustomStrategy[]>(
@@ -222,6 +186,7 @@ export function StrategyMarketplace() {
   );
   const [notice, setNotice] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     function load() {
@@ -248,25 +213,36 @@ export function StrategyMarketplace() {
     [customStrategies],
   );
 
-  const filteredStrategies = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    return communityStrategies.filter((strategy) => {
-      const searchable = [
-        strategy.title,
-        strategy.authorName,
-        strategy.description,
-        ...strategy.tags,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return matchesFilter(strategy, filter) && searchable.includes(normalized);
-    });
-  }, [filter, query]);
+  const filteredStrategies = useMemo(
+    () =>
+      discoverStrategies(communityStrategies, {
+        query,
+        category: filter,
+        market,
+        access,
+        sort,
+      }),
+    [query, filter, market, access, sort],
+  );
 
   function persistStrategies(next: CustomStrategy[]) {
     localStorage.setItem(CUSTOM_STRATEGIES_KEY, JSON.stringify(next));
     setCustomStrategies(next);
     window.dispatchEvent(new CustomEvent(CUSTOM_STRATEGIES_EVENT));
+  }
+
+  function favoriteStrategy(strategy: CommunityStrategy) {
+    if (strategy.price > 0 || referencedIds.has(strategy.id)) return;
+    try {
+      if (customStrategies.length >= 30)
+        throw new Error('策略库已满，请先整理现有策略。');
+      persistStrategies([...customStrategies, toCustomStrategy(strategy)]);
+      setNotice(`已收藏「${strategy.title}」，新建实验时可从已有策略中选择。`);
+    } catch (error) {
+      setNotice(
+        error instanceof Error ? error.message : '收藏失败，请检查本机存储。',
+      );
+    }
   }
 
   function referenceStrategy(strategy: CommunityStrategy) {
@@ -276,28 +252,19 @@ export function StrategyMarketplace() {
       return;
     }
     if (referencedIds.has(strategy.id)) {
-      setTab('mine');
-      setNotice(`「${strategy.title}」已经在你的策略中。`);
+      const existing = customStrategies.find(
+        (item) => item.marketId === strategy.id,
+      );
+      if (existing) openInSimulation(existing);
       return;
     }
     try {
-      persistStrategies([...customStrategies, toCustomStrategy(strategy)]);
-      setNotice(
-        `已将「${strategy.title}」引用到我的策略，可在驾驶舱推演中使用。`,
-      );
+      const copy = toCustomStrategy(strategy);
+      persistStrategies([...customStrategies, copy]);
+      openInSimulation(copy);
     } catch {
       setNotice('引用失败，请检查浏览器是否允许本机存储。');
     }
-  }
-
-  function showAll(filterValue: MarketFilter) {
-    setQuery('');
-    setFilter(filterValue);
-    window.requestAnimationFrame(() => {
-      document
-        .getElementById('strategy-market-toolbar')
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
   }
 
   function openInSimulation(strategy: CustomStrategy) {
@@ -312,17 +279,6 @@ export function StrategyMarketplace() {
     }
   }
 
-  const featured = communityStrategies.find((strategy) => strategy.featured)!;
-  const freeStrategies = communityStrategies
-    .filter((strategy) => strategy.price === 0)
-    .slice(0, 4);
-  const popularStrategies = [...communityStrategies]
-    .sort((a, b) => b.referenceCount - a.referenceCount)
-    .slice(0, 3);
-  const paidStrategies = communityStrategies.filter(
-    (strategy) => strategy.price > 0,
-  );
-
   return (
     <div className="app-shell strategies-shell">
       <AppRail />
@@ -334,6 +290,14 @@ export function StrategyMarketplace() {
           <span className="header-divider" />
           <span className="workspace-label">社区策略市场</span>
           <div className="header-right">
+            <button
+              className="lab-help-trigger"
+              aria-label="使用指南"
+              onClick={() => setGuideOpen(true)}
+            >
+              <CircleHelp size={17} aria-hidden="true" />
+              <span>使用指南</span>
+            </button>
             <span className="snapshot">
               {communityStrategies.length} 个社区策略 ·{' '}
               {customStrategies.length} 个已入库
@@ -363,7 +327,7 @@ export function StrategyMarketplace() {
               className="strategy-create-button"
               onClick={() => setCreateOpen(true)}
             >
-              <Plus size={16} /> 创建策略
+              <Sparkles size={16} /> AI 创建策略
             </button>
           </section>
 
@@ -391,129 +355,111 @@ export function StrategyMarketplace() {
           )}
 
           {tab === 'market' ? (
-            <>
-              <section
-                className="strategy-featured"
-                aria-labelledby="featured-title"
-              >
-                <StrategyImage
-                  src={featured.cover}
-                  alt={featured.coverAlt}
-                  width={1440}
-                  height={810}
-                  fetchPriority="high"
-                />
-                <div className="strategy-featured-overlay" />
-                <div className="strategy-featured-copy">
-                  <span>
-                    <Sparkles size={13} /> 社区热门 · 免费
-                  </span>
-                  <h2 id="featured-title">{featured.title}</h2>
-                  <p>{featured.description}</p>
-                  <div className="strategy-featured-author">
-                    <StrategyImage
-                      src={featured.authorAvatar}
-                      alt=""
-                      width={34}
-                      height={34}
+            communityStrategies.length ? (
+              <>
+                <section className="discovery-controls" aria-label="查找策略">
+                  <label className="discovery-search">
+                    <Search size={18} aria-hidden="true" />
+                    <input
+                      aria-label="搜索策略"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="搜索策略名称、逻辑、作者或标签"
                     />
-                    <span>
-                      <b>{featured.authorName}</b>
-                      <small>
-                        {featured.authorRole} · {featured.updatedLabel}
-                      </small>
-                    </span>
-                  </div>
-                  <button onClick={() => setSelected(featured)}>
-                    查看策略 <ArrowRight size={15} />
-                  </button>
-                </div>
-              </section>
-
-              <aside className="strategy-community-note">
-                <ShieldCheck size={18} />
-                <div>
-                  <b>平台不提供操作建议，广场内容均以社区研究规则展示</b>
-                  <p>
-                    OwlMate 只提供规则整理和虚拟仿真能力。Beta
-                    期间的社区身份与策略内容包含演示数据，不连接真实账户。
-                  </p>
-                </div>
-              </aside>
-
-              <div
-                className="strategy-market-toolbar"
-                id="strategy-market-toolbar"
-              >
-                <div aria-label="策略筛选">
-                  {marketFilters.map((item) => (
-                    <button
-                      key={item}
-                      aria-pressed={filter === item}
-                      onClick={() => setFilter(item)}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {query || filter !== '全部' ? (
-                <section className="market-shelf market-search-results">
-                  <div className="market-shelf-heading">
-                    <div>
-                      <span>SEARCH RESULTS</span>
-                      <h2>找到 {filteredStrategies.length} 个策略</h2>
-                      <p>结果同时匹配当前关键词与筛选条件。</p>
-                    </div>
-                  </div>
-                  <div className="market-card-grid">
-                    {filteredStrategies.map((strategy) => (
-                      <StrategyCard
-                        key={strategy.id}
-                        strategy={strategy}
-                        referenced={referencedIds.has(strategy.id)}
-                        onOpen={() => setSelected(strategy)}
-                        onReference={() => referenceStrategy(strategy)}
-                      />
+                  </label>
+                  <div className="discovery-categories" aria-label="策略分类">
+                    {strategyCategories.map((item) => (
+                      <button
+                        key={item}
+                        aria-pressed={filter === item}
+                        onClick={() => setFilter(item)}
+                      >
+                        {item}
+                      </button>
                     ))}
                   </div>
+                  <div className="discovery-selects">
+                    <label>
+                      适用市场
+                      <select
+                        value={market}
+                        onChange={(event) =>
+                          setMarket(event.target.value as StrategyMarket)
+                        }
+                      >
+                        {strategyMarkets.map((item) => (
+                          <option key={item}>{item}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      获取方式
+                      <select
+                        value={access}
+                        onChange={(event) => setAccess(event.target.value)}
+                      >
+                        {['全部获取方式', '免费', '付费'].map((item) => (
+                          <option key={item}>{item}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      排序
+                      <select
+                        value={sort}
+                        onChange={(event) => setSort(event.target.value)}
+                      >
+                        {['精选顺序', '引用人数', '名称'].map((item) => (
+                          <option key={item}>{item}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <span>{filteredStrategies.length} 个策略</span>
+                    <button
+                      onClick={() => {
+                        setQuery('');
+                        setFilter('全部');
+                        setMarket('全部市场');
+                        setAccess('全部获取方式');
+                        setSort('精选顺序');
+                      }}
+                    >
+                      重置筛选
+                    </button>
+                  </div>
                 </section>
-              ) : (
-                <>
-                  <MarketSection
-                    eyebrow="FREE TO REFERENCE"
-                    title="免费策略"
-                    description="社区用户免费分享，可直接引用到自己的策略库。"
-                    strategies={freeStrategies}
-                    referencedIds={referencedIds}
-                    onOpen={setSelected}
-                    onReference={referenceStrategy}
-                    onViewAll={() => showAll('免费')}
-                  />
-                  <MarketSection
-                    eyebrow="TRENDING THIS WEEK"
-                    title="本周热门"
-                    description="根据引用人数与近期更新活跃度排列。"
-                    strategies={popularStrategies}
-                    referencedIds={referencedIds}
-                    onOpen={setSelected}
-                    onReference={referenceStrategy}
-                    layout="bento"
-                  />
-                  <MarketSection
-                    eyebrow="CREATOR EDITIONS"
-                    title="创作者进阶策略"
-                    description="可预览规则框架；收费获取流程将在后续版本开放。"
-                    strategies={paidStrategies}
-                    referencedIds={referencedIds}
-                    onOpen={setSelected}
-                    onReference={referenceStrategy}
-                    onViewAll={() => showAll('付费')}
-                  />
-                </>
-              )}
-            </>
+                <div className="discovery-status">
+                  <FlaskConical size={16} />
+                  <span>
+                    先理解规则，再加入实验室验证。当前策略尚无统一回测结果，真实收益、回撤及曲线将在完成测试后展示。
+                  </span>
+                </div>
+                {!filteredStrategies.length && (
+                  <div className="strategy-welcome">
+                    <h2>没有找到匹配的策略</h2>
+                    <p>可以调整分类、适用市场或搜索关键词。</p>
+                  </div>
+                )}
+                <div className="market-card-grid discovery-grid">
+                  {filteredStrategies.map((strategy) => (
+                    <StrategyCard
+                      key={strategy.id}
+                      strategy={strategy}
+                      referenced={referencedIds.has(strategy.id)}
+                      onOpen={() => setSelected(strategy)}
+                      onReference={() => referenceStrategy(strategy)}
+                      onFavorite={() => favoriteStrategy(strategy)}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <StrategyWelcome
+                mode="market"
+                onStart={() => setCreateOpen(true)}
+                onHelp={() => setGuideOpen(true)}
+              />
+            )
           ) : (
             <section
               className="my-strategy-library"
@@ -536,22 +482,6 @@ export function StrategyMarketplace() {
                 <div className="my-strategy-grid">
                   {customStrategies.map((strategy) => (
                     <article className="my-strategy-card" key={strategy.id}>
-                      <div className="my-strategy-cover">
-                        <StrategyImage
-                          src={
-                            strategy.cover ?? '/strategy-covers/defensive.jpg'
-                          }
-                          alt=""
-                          width={1440}
-                          height={810}
-                          loading="lazy"
-                        />
-                        <span>
-                          {strategy.origin === 'community'
-                            ? '社区引用'
-                            : '我创建的'}
-                        </span>
-                      </div>
                       <div>
                         <h3>{strategy.name}</h3>
                         <p>{strategy.summary}</p>
@@ -573,12 +503,11 @@ export function StrategyMarketplace() {
                   ))}
                 </div>
               ) : (
-                <div className="my-strategy-empty">
-                  <Library size={28} />
-                  <h3>你的策略库还是空的</h3>
-                  <p>先去市场引用免费策略，或创建一套自己的规则。</p>
-                  <button onClick={() => setTab('market')}>浏览策略市场</button>
-                </div>
+                <StrategyWelcome
+                  mode="market"
+                  onStart={() => setCreateOpen(true)}
+                  onHelp={() => setGuideOpen(true)}
+                />
               )}
             </section>
           )}
@@ -592,6 +521,13 @@ export function StrategyMarketplace() {
         </main>
       </div>
 
+      {guideOpen && (
+        <StrategyGuide
+          mode="market"
+          onClose={() => setGuideOpen(false)}
+          onStart={() => setCreateOpen(true)}
+        />
+      )}
       <Dialog
         open={selected !== null}
         onOpenChange={(open) => !open && setSelected(null)}
@@ -603,20 +539,6 @@ export function StrategyMarketplace() {
           </DialogDescription>
           {selected && (
             <div className="market-strategy-detail">
-              <div className="market-detail-cover">
-                <StrategyImage
-                  src={selected.cover}
-                  alt={selected.coverAlt}
-                  width={1440}
-                  height={810}
-                />
-                <div>
-                  <span className={selected.price === 0 ? 'free' : 'paid'}>
-                    {priceLabel(selected)}
-                  </span>
-                  <span>{selected.referenceCount} 人引用</span>
-                </div>
-              </div>
               <div className="market-detail-author">
                 <StrategyImage
                   src={selected.authorAvatar}
@@ -658,6 +580,22 @@ export function StrategyMarketplace() {
                   ))}
                 </section>
               </div>
+              <section className="discovery-backtest">
+                <h3>
+                  回测表现 <span>待测试</span>
+                </h3>
+                <StrategyPerformance />
+                <p>
+                  曲线仅为样式预览，不代表此策略的历史表现。真实测试区间、对照基准、手续费和滑点将在回测接入后展示。
+                </p>
+              </section>
+              <div className="discovery-flow">
+                <span>1 加入实验室</span>
+                <ArrowRight size={13} />
+                <span>2 调整参数</span>
+                <ArrowRight size={13} />
+                <span>3 验证规则</span>
+              </div>
               <div className="market-detail-actions">
                 <button
                   className="market-card-secondary"
@@ -675,11 +613,11 @@ export function StrategyMarketplace() {
                 >
                   {referencedIds.has(selected.id) ? (
                     <>
-                      <Check size={14} /> 已在我的策略
+                      <Check size={14} /> 打开实验室
                     </>
                   ) : selected.price === 0 ? (
                     <>
-                      <Plus size={14} /> 免费引用到我的策略
+                      <Plus size={14} /> 加入实验室
                     </>
                   ) : (
                     <>

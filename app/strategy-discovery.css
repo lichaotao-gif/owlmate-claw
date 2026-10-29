@@ -1,0 +1,466 @@
+.strategies-shell .discovery-controls {
+  margin: 24px 0 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+.discovery-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  background: var(--background);
+}
+.discovery-search:focus-within {
+  border-color: var(--primary);
+}
+.discovery-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+}
+.discovery-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+.discovery-categories button {
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+}
+.discovery-categories button[aria-pressed='true'] {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 22%, transparent);
+}
+.discovery-selects {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.discovery-selects label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.discovery-selects select {
+  min-height: 36px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 12px;
+}
+.discovery-selects > span {
+  margin-left: auto;
+}
+.discovery-selects > button {
+  min-height: 36px;
+  color: var(--primary);
+}
+.discovery-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.discovery-status svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--primary);
+}
+.strategies-shell .discovery-grid {
+  margin-bottom: 24px;
+}
+.strategies-shell .discovery-cover {
+  aspect-ratio: auto;
+  height: 104px;
+}
+.strategies-shell .discovery-grid .market-strategy-card-body > p {
+  min-height: 0;
+}
+.discovery-card-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 0;
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 12px;
+}
+.discovery-card-facts small {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.strategies-shell .discovery-grid .discovery-asset-scope {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.discovery-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+.discovery-tags span {
+  padding: 4px 7px;
+  border-radius: 5px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 5%, transparent);
+  font-size: 10px;
+}
+.discovery-backtest {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--background);
+}
+.discovery-backtest h3 {
+  font-size: 14px;
+  color: var(--foreground);
+}
+.discovery-backtest h3 span {
+  margin-left: 8px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  font-size: 11px;
+  font-weight: 400;
+}
+.discovery-backtest > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+.discovery-backtest small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.discovery-backtest b {
+  display: block;
+  margin-top: 8px;
+  font-size: 22px;
+  color: var(--muted);
+}
+.discovery-backtest > p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.discovery-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+@media (max-width: 640px) {
+  .discovery-selects > span {
+    margin-left: 0;
+  }
+  .discovery-selects label {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .discovery-selects select {
+    width: 65%;
+  }
+}
+.strategies-shell .discovery-controls,
+.strategies-shell .discovery-status,
+.strategies-shell .discovery-grid {
+  width: 100%;
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.strategies-shell .discovery-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 1050px) {
+  .strategies-shell .discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .strategies-shell .discovery-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.strategies-shell .discovery-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.strategies-shell .discovery-grid .market-strategy-card-body {
+  padding: 22px;
+}
+.discovery-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.strategies-shell .discovery-title-row h3 {
+  color: var(--foreground);
+  font-size: 18px;
+  line-height: 1.5;
+  white-space: normal;
+}
+.discovery-price {
+  flex: none;
+  padding: 4px 8px;
+  border-radius: 5px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  font-size: 11px;
+}
+.strategy-performance {
+  --chart-strategy: #e86f76;
+  --chart-benchmark: #619de2;
+  margin-top: 18px;
+}
+.strategy-performance-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.strategy-performance-metrics strong {
+  display: block;
+  color: var(--foreground);
+  font-size: 23px;
+  font-weight: 600;
+}
+.strategy-performance-metrics span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.strategy-performance-caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.strategy-performance-caption small {
+  font-size: 10px;
+}
+.strategy-performance svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.strategy-performance-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.strategy-performance-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.strategy-performance-legend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--chart-strategy);
+}
+.strategy-performance-legend span:nth-child(2) i {
+  background: var(--chart-benchmark);
+}
+.strategy-performance-legend small {
+  font-size: 10px;
+}
+.discovery-backtest > .strategy-performance {
+  padding: 0;
+  border: 0;
+}
+@media (max-width: 760px) {
+  .strategies-shell .discovery-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.lab-strategy-choice {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.lab-strategy-choice button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 76px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--foreground);
+  text-align: left;
+}
+.lab-strategy-choice button[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 9%, var(--card));
+}
+.lab-strategy-choice svg {
+  flex: none;
+  color: var(--primary);
+}
+.lab-strategy-choice b {
+  display: block;
+  font-size: 14px;
+}
+.lab-strategy-choice small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.lab-strategy-create-intro {
+  padding: 28px 15px;
+  text-align: center;
+}
+.lab-strategy-create-intro > svg {
+  margin: 0 auto 12px;
+  color: var(--primary);
+}
+.lab-strategy-create-intro h3 {
+  font-size: 17px;
+}
+.lab-strategy-create-intro p {
+  max-width: 420px;
+  margin: 12px auto 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.lab-strategy-create-intro button {
+  margin: auto;
+}
+.lab-strategy-auto-market {
+  margin-top: 16px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.8;
+}
+@media (max-width: 480px) {
+  .lab-strategy-choice {
+    grid-template-columns: 1fr;
+  }
+}
+.discovery-title-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.discovery-title-actions button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  color: var(--primary);
+  font-size: 11px;
+}
+.discovery-title-actions button:disabled {
+  opacity: 0.6;
+}
+.lab-strategy-route {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.lab-strategy-route legend {
+  margin-bottom: 18px;
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 600;
+}
+.lab-strategy-route label {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  padding: 22px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  cursor: pointer;
+}
+.lab-strategy-route label:has(input:checked) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+.lab-strategy-route input {
+  accent-color: var(--primary);
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+.lab-strategy-route svg {
+  flex: none;
+  color: var(--primary);
+}
+.lab-strategy-route b {
+  display: block;
+  color: var(--foreground);
+  font-size: 15px;
+}
+.lab-strategy-route small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.lab-strategy-route > p {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 12px;
+}

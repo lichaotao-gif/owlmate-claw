@@ -1,0 +1,321 @@
+.lab-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lab-help-trigger:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+.strategy-welcome {
+  padding: 26px;
+  margin: 18px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card);
+}
+.strategy-welcome-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.strategy-welcome-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.strategy-welcome h2 {
+  margin: 8px 0 10px;
+  font-size: 23px;
+  line-height: 1.5;
+}
+.strategy-welcome p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.strategy-welcome-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 24px 0;
+  padding: 0;
+  gap: 12px;
+}
+.strategy-welcome-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+.strategy-welcome-steps li > span {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.strategy-welcome-steps b {
+  font-size: 13px;
+}
+.strategy-welcome-steps small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.strategy-welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.strategy-guide-start,
+.strategy-guide-help,
+.strategy-guide-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+button.strategy-guide-start {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--background);
+  font-weight: 600;
+}
+.strategy-guide-help:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.strategy-guide-start:focus-visible,
+.strategy-guide-help:focus-visible,
+.lab-help-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+body:has(.strategy-guide-dialog) [data-slot='dialog-overlay'] {
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(5px);
+}
+.owl-dialog.strategy-guide-dialog {
+  display: block;
+  width: 940px;
+  max-width: calc(100vw - 32px);
+  max-height: 92dvh;
+  overflow-y: auto;
+  padding: 26px;
+}
+.strategy-guide-dialog > h2 {
+  padding-right: 28px;
+  font-size: 21px;
+  margin: 0 0 10px;
+}
+.strategy-guide-dialog > p {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.strategy-guide-picture-wrap {
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+.strategy-guide-picture {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+  height: auto;
+  font-family: inherit;
+}
+.guide-svg-background {
+  fill: var(--background);
+}
+.guide-svg-panel {
+  fill: var(--card);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.guide-svg-line {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.guide-svg-title {
+  fill: var(--foreground);
+  font-size: 21px;
+  font-weight: 700;
+}
+.guide-svg-label {
+  fill: var(--foreground);
+  font-size: 16px;
+  font-weight: 600;
+}
+.guide-svg-muted {
+  fill: var(--muted);
+  font-size: 14px;
+}
+.guide-svg-primary {
+  fill: var(--primary);
+}
+.guide-svg-button {
+  fill: var(--background);
+  font-size: 15px;
+  font-weight: 600;
+}
+.guide-svg-selected {
+  fill: color-mix(in srgb, var(--primary) 9%, var(--card));
+  stroke: var(--primary);
+  stroke-width: 1;
+}
+.guide-svg-chart {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.guide-svg-marker circle {
+  fill: var(--primary);
+  stroke: var(--background);
+  stroke-width: 3;
+}
+.guide-svg-marker circle.guide-svg-halo {
+  fill: color-mix(in srgb, var(--primary) 12%, transparent);
+  stroke: none;
+}
+.guide-svg-marker text {
+  fill: var(--background);
+  font-size: 15px;
+  font-weight: 700;
+}
+.guide-svg-marker.active circle.guide-svg-halo {
+  fill: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+.strategy-guide-step-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.strategy-guide-step-picker button {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.strategy-guide-step-picker button[aria-current='step'] {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--card));
+}
+.strategy-guide-step-picker span {
+  font-weight: 700;
+}
+.strategy-guide-explanation {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--background);
+}
+.strategy-guide-explanation b {
+  color: var(--foreground);
+  font-size: 14px;
+}
+.strategy-guide-explanation p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.strategy-guide-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+.strategy-guide-controls > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.strategy-guide-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+@media (max-width: 760px) {
+  .strategy-welcome-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .strategy-welcome {
+    padding: 20px 16px;
+  }
+  .strategy-welcome-heading {
+    flex-direction: column;
+  }
+  .strategy-welcome h2 {
+    font-size: 20px;
+  }
+  .strategy-guide-step-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .owl-dialog.strategy-guide-dialog {
+    padding: 20px 16px;
+  }
+  .lab-help-trigger span {
+    display: none;
+  }
+  .lab-help-trigger {
+    width: 40px;
+    padding: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .strategy-guide-dialog {
+    animation: none;
+    transition: none;
+  }
+}

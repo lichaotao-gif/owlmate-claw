@@ -25,6 +25,9 @@ import {
   type CustomStrategy,
 } from '@/lib/investment-strategies';
 import { recordAgentCreditUsage } from '@/lib/agent-credits';
+import { upsertPersonalStrategy } from '@/lib/strategy-library';
+import { runStrategyGeneration } from '@/lib/strategy-generation';
+import { StrategyGenerationProgress } from '@/components/strategy-generation-progress';
 
 type AgentInputMode = 'text' | 'voice' | 'document';
 
@@ -78,16 +81,26 @@ export function CustomStrategyDialog({
   const [documentName, setDocumentName] = useState('');
   const [isReadingDocument, setIsReadingDocument] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [generationStep, setGenerationStep] = useState<number | null>(null);
+  const generationCancel = useRef<(() => void) | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(
     () => () => {
       recognitionRef.current?.stop();
+      generationCancel.current?.();
     },
     [],
   );
 
+  function cancelGeneration() {
+    generationCancel.current?.();
+    generationCancel.current = null;
+    setGenerationStep(null);
+  }
+
   function reset() {
+    cancelGeneration();
     recognitionRef.current?.stop();
     recognitionRef.current = null;
     setName('');
@@ -106,7 +119,7 @@ export function CustomStrategyDialog({
     setError('');
   }
 
-  function generate() {
+  function createDraft() {
     if (description.trim().length < 12) {
       setError(
         '请再多描述一些，至少包含适用资产、选择规则或风险控制中的一项。',
@@ -140,6 +153,29 @@ export function CustomStrategyDialog({
     }
   }
 
+  function generate() {
+    if (generationCancel.current || isReadingDocument) return;
+    if (description.trim().length < 12) {
+      setError('请描述适用资产、选择规则或风险控制，至少 12 个字符。');
+      return;
+    }
+    recognitionRef.current?.stop();
+    setIsListening(false);
+    setError('');
+    generationCancel.current = runStrategyGeneration(
+      setGenerationStep,
+      () => {
+        createDraft();
+        generationCancel.current = null;
+        setGenerationStep(null);
+      },
+      (callback, delay) => {
+        const timer = window.setTimeout(callback, delay);
+        return () => window.clearTimeout(timer);
+      },
+    );
+  }
+
   function save() {
     if (!draft) return;
     try {
@@ -147,16 +183,15 @@ export function CustomStrategyDialog({
       const previous = readCustomStrategies(
         localStorage.getItem(CUSTOM_STRATEGIES_KEY),
       );
-      localStorage.setItem(
-        CUSTOM_STRATEGIES_KEY,
-        JSON.stringify([...previous, strategy]),
-      );
+      const next = upsertPersonalStrategy(previous, strategy);
+      readCustomStrategies(JSON.stringify(next));
+      localStorage.setItem(CUSTOM_STRATEGIES_KEY, JSON.stringify(next));
       window.dispatchEvent(new CustomEvent(CUSTOM_STRATEGIES_EVENT));
       onCreated(strategy);
       onOpenChange(false);
       reset();
     } catch {
-      setError('策略保存失败，请检查浏览器本地存储设置。');
+      setError('策略保存失败，请检查存储设置或是否已达到 30 条策略上限。');
     }
   }
 
@@ -207,7 +242,13 @@ export function CustomStrategyDialog({
     recognitionRef.current = recognition;
     setError('');
     setIsListening(true);
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      recognitionRef.current = null;
+      setError('语音输入未能启动，请检查麦克风权限或改用文字输入。');
+    }
   }
 
   async function readStrategyDocument(file: File | undefined) {
@@ -259,7 +300,12 @@ export function CustomStrategyDialog({
         <DialogDescription>
           说出、写下或导入你的想法，Agent 会整理成可复核的个人策略。
         </DialogDescription>
-        {!draft ? (
+        {generationStep !== null ? (
+          <StrategyGenerationProgress
+            step={generationStep}
+            onCancel={cancelGeneration}
+          />
+        ) : !draft ? (
           <div className="strategy-agent-create">
             <div className="strategy-agent-input-panel">
               <label>
@@ -379,7 +425,7 @@ export function CustomStrategyDialog({
                 文档只在浏览器内读取，不会上传到
                 OwlMate；语音转写由浏览器提供，是否联网取决于浏览器。
                 {context === 'experiment'
-                  ? '保存后会自动选中该策略，并返回实验创建流程。'
+                  ? '保存后会直接用于当前实验，并进入初始资产配置，无需再次选择。'
                   : '策略只保存到本地策略库。'}
               </span>
             </div>
@@ -447,7 +493,7 @@ export function CustomStrategyDialog({
               </button>
               <button className="strategy-create-submit" onClick={save}>
                 <Check size={15} />
-                {context === 'experiment' ? '保存并选中策略' : '保存到我的策略'}
+                {context === 'experiment' ? '保存并应用策略' : '保存到我的策略'}
               </button>
             </div>
           </div>
