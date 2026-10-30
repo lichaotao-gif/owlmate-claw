@@ -54,3 +54,8 @@ export function collectReviewHoldings(
   }
   return result;
 }
+
+// Home receives status metadata only, never balances or trades.
+export function collectHomeExperiments(channels: readonly ExperimentChannel[]) {
+  return channels.map(({ id, name, strategyName, status, createdAt }) => ({ id, name, strategyName, status, createdAt }));
+}

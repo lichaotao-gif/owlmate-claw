@@ -1191,7 +1191,8 @@ export function LabDashboard() {
           localStorage.getItem(EXPERIMENT_CHANNELS_KEY),
         );
         setChannels(next);
-        setSelectedId((current) => current || next[0]?.id || '');
+        const requested = new URLSearchParams(window.location.search).get('experiment');
+        setSelectedId((current) => current || next.find((item) => item.id === requested)?.id || next[0]?.id || '');
       } catch {
         setNotice('本机实验数据读取失败，已恢复初始实验。');
         const next = readExperimentChannels(null);

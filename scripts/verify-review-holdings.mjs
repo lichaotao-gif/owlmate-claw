@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { collectReviewHoldings, trustedReviewParent } from '../lib/review-holdings.ts';
+import { collectReviewHoldings, collectHomeExperiments, trustedReviewParent } from '../lib/review-holdings.ts';
 
 await test('only trusted parent origins receive holdings', () => {
   const own = 'https://lab.example.com';
@@ -27,4 +27,10 @@ await test('only nonzero securities and their names are exported', () => {
 await test('the same security in different experiments remains distinguishable', () => {
   const asset = { id: 'aapl', kind: 'security', name: '苹果', code: 'AAPL', amount: 1 };
   assert.deepEqual(collectReviewHoldings([{ id: 'a', name: '实验一', assets: [asset] }, { id: 'b', name: '实验二', assets: [asset] }]).map((item) => item.experimentName), ['实验一', '实验二']);
+});
+
+await test('home summary exports no financial values or trade records', () => {
+  const row = { id: 'one', name: '实验', strategyName: '趋势', status: '运行中', createdAt: '2026-10-30T00:00:00Z' };
+  assert.deepEqual(collectHomeExperiments([{ ...row, currentValue: 12345, assets: [{ name: 'private' }], trades: [{ detail: 'private' }] }]), [row]);
+  assert.deepEqual(collectHomeExperiments([]), []);
 });
